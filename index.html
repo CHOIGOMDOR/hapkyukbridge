@@ -1,0 +1,366 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>다이어트 벌금장</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow column (max 560px). Summary first, then today's entry, then history, settings last. */
+:root{
+  --bg:#f6f9f7;        /* off-white with a green bias */
+  --card:#ffffff;
+  --fg:#17221c;
+  --muted:#66766d;
+  --line:#dfe7e2;
+  --accent:#17a85a;    /* fresh green */
+  --accent-soft:#e3f6ea;
+  --warn:#e2552f;      /* fine / penalty */
+  --warn-soft:#fdece6;
+  --font:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1512;--card:#182019;--fg:#eef3ef;--muted:#93a399;--line:#2a352e;
+  --accent:#3dcc7e;--accent-soft:#163826;--warn:#ff7a55;--warn-soft:#3a2219;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1512;--card:#182019;--fg:#eef3ef;--muted:#93a399;--line:#2a352e;
+  --accent:#3dcc7e;--accent-soft:#163826;--warn:#ff7a55;--warn-soft:#3a2219;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 56px;padding-inline:16px;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:14px;font-weight:600;color:var(--muted);margin:0 0 10px;letter-spacing:.02em}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+header .date{font-size:14px;color:var(--muted)}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:7px 14px;
+  font:inherit;font-size:15px;font-weight:500;cursor:pointer;min-width:0}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.tile .lbl{font-size:13px;color:var(--muted);margin-bottom:4px}
+.tile .val{font-size:26px;font-weight:600;line-height:1.15;white-space:nowrap}
+.tile .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.tile.fine .val{color:var(--warn)}
+.down{color:var(--accent)} .up{color:var(--warn)}
+
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);flex:1;min-width:120px}
+input[type=number],input[type=text],input[type=date]{width:100%;font:inherit;font-size:17px;color:var(--fg);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toggle{flex:1;min-width:140px;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;color:var(--fg);cursor:pointer;text-align:left}
+.toggle small{color:var(--muted);font-size:12px;display:block}
+.toggle .st{font-weight:600;color:var(--warn);flex:none}
+.toggle[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.toggle[aria-pressed="true"] .st{color:var(--accent)}
+.btn{font:inherit;font-size:16px;font-weight:600;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;
+  background:var(--accent);color:#fff;width:100%}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.stack{display:flex;flex-direction:column;gap:12px}
+
+.preview{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;word-break:keep-all}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.hist li:first-child{border-top:0;padding-top:0}
+.hist .d{font-size:13px;color:var(--muted)}
+.hist .w{font-weight:600}
+.hist .tags{font-size:12px;color:var(--muted);margin-top:2px}
+.hist .tags b{color:var(--warn);font-weight:500}
+.hist .fee{text-align:right;font-weight:600}
+.hist .fee.zero{color:var(--muted);font-weight:400}
+.hist li.missed .w{color:var(--warn);font-weight:500}
+.empty{color:var(--muted);font-size:14px;margin:0}
+
+details.card summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none;display:flex;justify-content:space-between}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::after{content:"열기";font-size:13px;color:var(--muted);font-weight:400}
+details.card[open] summary::after{content:"닫기"}
+details.card[open] summary{margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2 label.f{min-width:0}
+.sect{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.sect h3{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:600}
+.danger{background:none;border:1px solid var(--line);color:var(--muted);font:inherit;font-size:13px;border-radius:8px;padding:6px 10px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media (max-width:380px){.tile .val{font-size:22px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>다이어트 벌금장</h1>
+    <span class="date num" id="today"></span>
+  </header>
+
+  <section>
+    <h2>나는 누구</h2>
+    <div class="chips" id="members" role="group" aria-label="멤버 선택"></div>
+  </section>
+
+  <section class="tiles" id="tiles" aria-live="polite">
+    <div class="tile"><div class="lbl">최근 체중</div><div class="val num" id="t-weight">–</div><div class="sub" id="t-weight-sub">아직 기록 없음</div></div>
+    <div class="tile"><div class="lbl">시작 대비</div><div class="val num" id="t-delta">–</div><div class="sub" id="t-delta-sub">목표까지</div></div>
+    <div class="tile fine"><div class="lbl">누적 벌금</div><div class="val num" id="t-fine">0원</div><div class="sub" id="t-fine-sub">벌금 없음</div></div>
+    <div class="tile"><div class="lbl">연속 기록</div><div class="val num" id="t-streak">0일</div><div class="sub" id="t-streak-sub">오늘 기록하면 시작</div></div>
+  </section>
+
+  <section class="card">
+    <h2>오늘 기록</h2>
+    <form id="entry" class="stack">
+      <div class="row">
+        <label class="f">날짜<input type="date" id="f-date" required></label>
+        <label class="f">체중 (kg)<input type="number" id="f-weight" step="0.1" min="20" max="300" inputmode="decimal" placeholder="예: 72.3" required></label>
+      </div>
+      <div class="row">
+        <button type="button" class="toggle" id="f-fast" aria-pressed="true">
+          <span>간헐적 단식<small id="f-fast-plan">16:8</small></span><span class="st">성공</span>
+        </button>
+        <button type="button" class="toggle" id="f-ex" aria-pressed="true">
+          <span>운동<small id="f-ex-plan">걷기 30분</small></span><span class="st">완료</span>
+        </button>
+      </div>
+      <button type="submit" class="btn" id="f-save">저장</button>
+    </form>
+  </section>
+
+  <section class="card stack" id="share">
+    <h2 style="margin:0">단톡방에 올릴 한 줄</h2>
+    <div class="preview num" id="share-text">기록을 저장하면 여기에 한 줄이 만들어집니다.</div>
+    <button type="button" class="btn ghost" id="copy" disabled>복사하기</button>
+  </section>
+
+  <section class="card">
+    <h2>기록</h2>
+    <ul class="hist" id="hist"></ul>
+    <p class="empty" id="hist-empty">첫 기록을 남겨보세요. 기록을 시작한 다음 날부터 빈 날은 미기록 벌금이 붙습니다.</p>
+  </section>
+
+  <details class="card" id="settings">
+    <summary>내 설정 · 벌금 규칙</summary>
+    <div class="grid2">
+      <label class="f">내 단식 방식<input type="text" id="s-fast" placeholder="예: 16:8"></label>
+      <label class="f">내 운동<input type="text" id="s-ex" placeholder="예: 걷기 30분"></label>
+      <label class="f">시작 체중 (kg)<input type="number" id="s-start" step="0.1" inputmode="decimal"></label>
+      <label class="f">목표 체중 (kg)<input type="number" id="s-goal" step="0.1" inputmode="decimal"></label>
+    </div>
+    <div class="sect">
+      <h3>벌금 (원) · 모임 규칙에 맞게 바꾸세요</h3>
+      <div class="grid2">
+        <label class="f">기록 안 한 날<input type="number" id="r-miss" step="100" min="0" inputmode="numeric"></label>
+        <label class="f">단식 실패<input type="number" id="r-fast" step="100" min="0" inputmode="numeric"></label>
+        <label class="f">운동 안 함<input type="number" id="r-ex" step="100" min="0" inputmode="numeric"></label>
+        <label class="f">전 기록보다 체중 증가<input type="number" id="r-gain" step="100" min="0" inputmode="numeric"></label>
+      </div>
+    </div>
+    <div class="sect">
+      <h3>멤버 이름 (5명)</h3>
+      <div class="grid2" id="s-members"></div>
+    </div>
+    <div class="sect row" style="justify-content:space-between">
+      <p class="hint" style="flex:1;min-width:200px">데이터는 이 기기(브라우저)에만 저장됩니다. 각자 자기 폰에서 기록하고 한 줄을 단톡방에 올리면 됩니다.</p>
+      <button type="button" class="danger" id="reset">내 기록 전체 삭제</button>
+    </div>
+  </details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  var KEY='diet-fine-book-v1';
+  var DEF_MEMBERS=['멤버1','멤버2','멤버3','멤버4','멤버5'];
+  var DEF_RULES={miss:1000,fast:1000,ex:1000,gain:1000};
+  var state=load();
+
+  function load(){
+    try{var s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.people) return s;}catch(e){}
+    return {me:0,members:DEF_MEMBERS.slice(),rules:Object.assign({},DEF_RULES),people:{}};
+  }
+  function save(){ try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){} }
+  function person(){ var k=String(state.me); if(!state.people[k]) state.people[k]={profile:{fast:'16:8',ex:'걷기 30분',start:null,goal:null},logs:{}}; return state.people[k]; }
+
+  // ---- dates ----
+  function pad(n){return (n<10?'0':'')+n}
+  function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+  function todayIso(){return iso(new Date())}
+  function parse(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+  function addDays(s,n){var d=parse(s);d.setDate(d.getDate()+n);return iso(d)}
+  function short(s){var p=s.split('-');return (+p[1])+'/'+(+p[2])}
+  function won(n){return n.toLocaleString('ko-KR')+'원'}
+
+  // ---- fine engine: deterministic from logs + rules ----
+  // Returns rows (sorted by date), each {date, missed, w, fast, ex, delta, items:[{k,amt}], fee}
+  function compute(p,rules){
+    var dates=Object.keys(p.logs).sort(); var rows=[]; if(!dates.length) return rows;
+    var today=todayIso(), end=dates[dates.length-1]>today?dates[dates.length-1]:today;
+    var prevW=null, d=dates[0];
+    while(d<=end){
+      var log=p.logs[d];
+      if(log){
+        var items=[], delta=(prevW!=null)?+(log.w-prevW).toFixed(1):null;
+        if(delta!=null&&delta>0&&rules.gain>0) items.push({k:'체중↑',amt:rules.gain});
+        if(!log.fast&&rules.fast>0) items.push({k:'단식 실패',amt:rules.fast});
+        if(!log.ex&&rules.ex>0) items.push({k:'운동 안 함',amt:rules.ex});
+        rows.push({date:d,missed:false,w:log.w,fast:log.fast,ex:log.ex,delta:delta,items:items,fee:items.reduce(function(a,b){return a+b.amt},0)});
+        prevW=log.w;
+      }else if(d<today){
+        rows.push({date:d,missed:true,items:[{k:'미기록',amt:rules.miss}],fee:rules.miss});
+      }
+      d=addDays(d,1);
+    }
+    return rows;
+  }
+  function total(rows){return rows.reduce(function(a,r){return a+r.fee},0)}
+  function streak(rows){var n=0;for(var i=rows.length-1;i>=0;i--){if(rows[i].missed)break;n++}return n}
+
+  // ---- share line ----
+  function shareLine(date){
+    var p=person(), rows=compute(p,state.rules), name=state.members[state.me];
+    var row=null; for(var i=0;i<rows.length;i++) if(rows[i].date===date&&!rows[i].missed) row=rows[i];
+    if(!row) return null;
+    var upto=rows.filter(function(r){return r.date<=date});
+    var dl=row.delta==null?'':' ('+(row.delta>0?'▲':row.delta<0?'▼':'=')+Math.abs(row.delta).toFixed(1)+')';
+    return short(date)+' '+name+' '+row.w.toFixed(1)+'kg'+dl+' · 단식'+(row.fast?'O':'X')+' 운동'+(row.ex?'O':'X')
+      +' · 오늘 벌금 '+won(row.fee)+' · 누적 '+won(total(upto));
+  }
+
+  // ---- DOM ----
+  var $=function(id){return document.getElementById(id)};
+  var lastSaved=null;
+
+  function renderMembers(){
+    var box=$('members'); box.innerHTML='';
+    state.members.forEach(function(n,i){
+      var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=n;
+      b.setAttribute('aria-pressed',String(i===state.me));
+      b.addEventListener('click',function(){state.me=i;lastSaved=null;save();renderAll()});
+      box.appendChild(b);
+    });
+    var sm=$('s-members'); sm.innerHTML='';
+    state.members.forEach(function(n,i){
+      var l=document.createElement('label'); l.className='f'; l.textContent=(i+1)+'번';
+      var inp=document.createElement('input'); inp.type='text'; inp.id='s-m'+i; inp.value=n; inp.maxLength=12;
+      inp.addEventListener('input',function(){state.members[i]=inp.value.trim()||DEF_MEMBERS[i];save();renderMembersOnly()});
+      l.appendChild(inp); sm.appendChild(l);
+    });
+  }
+  function renderMembersOnly(){
+    var chips=$('members').children; for(var i=0;i<chips.length;i++) chips[i].textContent=state.members[i];
+    renderShare();
+  }
+
+  function renderTiles(rows,p){
+    var last=null; for(var i=rows.length-1;i>=0;i--) if(!rows[i].missed){last=rows[i];break}
+    if(last){
+      $('t-weight').textContent=last.w.toFixed(1)+'kg';
+      $('t-weight-sub').innerHTML=last.delta==null?short(last.date)+' 기록':short(last.date)+' · 전 기록 대비 <span class="'+(last.delta>0?'up':last.delta<0?'down':'')+'">'+(last.delta>0?'+':'')+last.delta.toFixed(1)+'</span>';
+    }else{$('t-weight').textContent='–';$('t-weight-sub').textContent='아직 기록 없음'}
+    var start=p.profile.start, goal=p.profile.goal;
+    if(last&&start){var d=+(last.w-start).toFixed(1);$('t-delta').textContent=(d>0?'+':'')+d.toFixed(1)+'kg';$('t-delta').className='val num '+(d<0?'down':d>0?'up':'');}
+    else{$('t-delta').textContent='–';$('t-delta').className='val num'}
+    $('t-delta-sub').textContent=(last&&goal)?('목표까지 '+Math.max(0,last.w-goal).toFixed(1)+'kg'):(start?'목표 체중을 설정하세요':'시작 체중을 설정하세요');
+    var t=total(rows); $('t-fine').textContent=won(t);
+    var missed=rows.filter(function(r){return r.missed}).length;
+    $('t-fine-sub').textContent=t?('미기록 '+missed+'일 포함'):'벌금 없음';
+    var s=streak(rows); $('t-streak').textContent=s+'일';
+    $('t-streak-sub').textContent=p.logs[todayIso()]?'오늘 기록 완료':(rows.length?'오늘 아직 안 올렸어요':'오늘 기록하면 시작');
+  }
+
+  function renderHist(rows){
+    var ul=$('hist'); ul.innerHTML='';
+    $('hist-empty').hidden=rows.length>0;
+    rows.slice().reverse().slice(0,60).forEach(function(r){
+      var li=document.createElement('li'); if(r.missed) li.className='missed';
+      var d=document.createElement('span'); d.className='d num'; d.textContent=short(r.date);
+      var mid=document.createElement('div'); mid.style.minWidth='0';
+      var w=document.createElement('div'); w.className='w';
+      if(r.missed){w.textContent='기록 없음'}
+      else{w.innerHTML='<span class="num">'+r.w.toFixed(1)+'kg</span>'+(r.delta==null?'':' <span class="num '+(r.delta>0?'up':r.delta<0?'down':'muted')+'" style="font-size:13px;font-weight:500">'+(r.delta>0?'+':'')+r.delta.toFixed(1)+'</span>')}
+      var tags=document.createElement('div'); tags.className='tags';
+      if(r.missed){tags.innerHTML='<b>미기록</b>'}
+      else{tags.innerHTML='단식'+(r.fast?'O':'<b>X</b>')+' · 운동'+(r.ex?'O':'<b>X</b>')+(r.items.some(function(i){return i.k==='체중↑'})?' · <b>체중↑</b>':'')}
+      mid.appendChild(w); mid.appendChild(tags);
+      var fee=document.createElement('span'); fee.className='fee num'+(r.fee?'':' zero'); fee.textContent=r.fee?won(r.fee):'0';
+      li.appendChild(d); li.appendChild(mid); li.appendChild(fee); ul.appendChild(li);
+    });
+  }
+
+  function renderForm(p){
+    var date=$('f-date').value||todayIso(); $('f-date').value=date;
+    var log=p.logs[date];
+    $('f-weight').value=log?log.w:'';
+    setToggle($('f-fast'),log?log.fast:true,'성공','실패');
+    setToggle($('f-ex'),log?log.ex:true,'완료','안 함');
+    $('f-fast-plan').textContent=p.profile.fast||'방식 미설정';
+    $('f-ex-plan').textContent=p.profile.ex||'종류 미설정';
+    $('f-save').textContent=log?'수정 저장':'저장';
+  }
+  function setToggle(b,on,yes,no){b.setAttribute('aria-pressed',String(on));b.querySelector('.st').textContent=on?yes:no}
+
+  function renderShare(){
+    var date=lastSaved||(person().logs[todayIso()]?todayIso():null);
+    var line=date?shareLine(date):null;
+    $('share-text').textContent=line||'기록을 저장하면 여기에 한 줄이 만들어집니다.';
+    $('copy').disabled=!line;
+  }
+
+  function renderSettings(p){
+    $('s-fast').value=p.profile.fast||''; $('s-ex').value=p.profile.ex||'';
+    $('s-start').value=p.profile.start||''; $('s-goal').value=p.profile.goal||'';
+    $('r-miss').value=state.rules.miss; $('r-fast').value=state.rules.fast; $('r-ex').value=state.rules.ex; $('r-gain').value=state.rules.gain;
+  }
+
+  function renderAll(){
+    var p=person(), rows=compute(p,state.rules);
+    var chips=$('members').children; for(var i=0;i<chips.length;i++) chips[i].setAttribute('aria-pressed',String(i===state.me));
+    renderTiles(rows,p); renderHist(rows); renderForm(p); renderShare(); renderSettings(p);
+  }
+
+  // ---- events ----
+  $('f-fast').addEventListener('click',function(){setToggle(this,this.getAttribute('aria-pressed')!=='true','성공','실패')});
+  $('f-ex').addEventListener('click',function(){setToggle(this,this.getAttribute('aria-pressed')!=='true','완료','안 함')});
+  $('f-date').addEventListener('change',function(){renderForm(person())});
+  $('entry').addEventListener('submit',function(e){
+    e.preventDefault();
+    var p=person(), date=$('f-date').value, w=parseFloat($('f-weight').value);
+    if(!date||isNaN(w)){toast('날짜와 체중을 입력하세요');return}
+    if(date>todayIso()){toast('미래 날짜는 기록할 수 없어요');return}
+    p.logs[date]={w:+w.toFixed(1),fast:$('f-fast').getAttribute('aria-pressed')==='true',ex:$('f-ex').getAttribute('aria-pressed')==='true'};
+    if(p.profile.start==null) p.profile.start=p.logs[date].w;
+    lastSaved=date; save(); renderAll(); toast('저장됐어요. 아래 한 줄을 복사해 올리세요');
+    $('share').scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+  $('copy').addEventListener('click',function(){
+    var t=$('share-text').textContent;
+    var done=function(){toast('복사됐어요')};
+    var fallback=function(){var r=document.createRange();r.selectNodeContents($('share-text'));var s=getSelection();s.removeAllRanges();s.addRange(r);toast('길게 눌러 복사하세요')};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fallback)}else fallback();
+  });
+  ['s-fast','s-ex'].forEach(function(id){$(id).addEventListener('input',function(){person().profile[id==='s-fast'?'fast':'ex']=this.value.trim();save();renderForm(person())})});
+  ['s-start','s-goal'].forEach(function(id){$(id).addEventListener('input',function(){var v=parseFloat(this.value);person().profile[id==='s-start'?'start':'goal']=isNaN(v)?null:v;save();renderTiles(compute(person(),state.rules),person())})});
+  [['r-miss','miss'],['r-fast','fast'],['r-ex','ex'],['r-gain','gain']].forEach(function(pr){$(pr[0]).addEventListener('input',function(){var v=parseInt(this.value,10);state.rules[pr[1]]=isNaN(v)||v<0?0:v;save();var p=person(),rows=compute(p,state.rules);renderTiles(rows,p);renderHist(rows);renderShare()})});
+  var resetArmed=false;
+  $('reset').addEventListener('click',function(){
+    if(!resetArmed){resetArmed=true;this.textContent='정말 삭제? 다시 누르면 삭제';var self=this;setTimeout(function(){resetArmed=false;self.textContent='내 기록 전체 삭제'},4000);return}
+    state.people[String(state.me)]=undefined; delete state.people[String(state.me)]; lastSaved=null; save(); resetArmed=false; this.textContent='내 기록 전체 삭제'; renderAll(); toast('삭제됐어요');
+  });
+
+  var toastT; function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},2200)}
+
+  // ---- boot ----
+  var now=new Date(); $('today').textContent=now.getFullYear()+'.'+pad(now.getMonth()+1)+'.'+pad(now.getDate())+' '+['일','월','화','수','목','금','토'][now.getDay()];
+  $('f-date').value=todayIso(); $('f-date').max=todayIso();
+  renderMembers(); renderAll();
+})();
+</script>
+</body></html>
