@@ -259,6 +259,31 @@ tr.cur td{background:var(--tint)}
   .task .what{font-size:18px}
 }
 .card h3 .cheer{flex:none}.card h3 .cheer img{height:54px}
+
+/* ===== 이미지 크게 ===== */
+.card h3 .cheer img{height:120px;max-width:190px}
+.card h3{min-height:74px;align-items:center}
+.card h3 .cheer{margin-top:-22px;margin-bottom:-14px}
+.card h3 .bubble.sm{font-size:16px;margin-bottom:34px}
+.praise img{height:96px}
+.goal .pic{height:130px;gap:8px}
+.goal .pic img{height:130px;max-width:230px}
+.goal{padding-top:20px;padding-bottom:20px}
+.hero .pic{width:330px;height:200px}
+@media(max-width:820px){
+  .card h3 .cheer img{height:96px;max-width:150px}
+  .goal .pic{height:110px}.goal .pic img{height:110px;max-width:170px}
+  .hero .pic{width:100%;height:170px}
+}
+
+.card h3 .cheer{margin-bottom:0}
+.dd{white-space:nowrap}
+.goal{flex-wrap:wrap;row-gap:8px}
+.goal .pic img{max-width:150px;height:120px}
+.goal .pic{height:120px}
+@media(max-width:820px){.goal .pic img{height:100px;max-width:140px}.goal .pic{height:100px}}
+.goal .pic img{max-width:200px}
+@media(max-width:820px){.goal .pic img{max-width:150px}}
 </style>
 </head>
 <body>
@@ -266,7 +291,7 @@ tr.cur td{background:var(--tint)}
 <div class="wrap">
   <header>
     <div class="logo">
-      <img class="logoimg slot" data-slot="0" alt="">
+      <img class="logoimg slot" data-slot="0" src="assets/img/cheer-friends.png" alt="">
       치즈볼의 덕질 공부 노트
     </div>
     <nav>
@@ -286,15 +311,15 @@ tr.cur td{background:var(--tint)}
         <h2 id="heroTitle"></h2>
         <div class="s">시간보다 분량으로, 하나씩 차근차근.</div>
       </div>
-      <div class="pic"><div class="bubble" id="bubble"></div><img class="slot" data-slot="1" alt=""></div>
+      <div class="pic"><div class="bubble" id="bubble"></div><img class="slot" data-slot="1" src="assets/img/cheer-pompom.png" alt=""></div>
     </div>
 
     <div class="week" id="week"></div>
 
     <div class="grid">
       <div class="card">
-        <h3>📚 오늘 할 공부 <span class="chip" id="planChip"></span><span class="cheer"><span class="bubble sm" id="bubble2">화이팅!</span><img class="slot" data-slot="2" alt=""></span></h3>
-        <div class="praise" id="praise"><img class="slot" data-slot="3" alt=""><span>오늘 할 일 다 했어요! 최고 🎉</span></div>
+        <h3>📚 오늘 할 공부 <span class="chip" id="planChip"></span><span class="cheer"><span class="bubble sm" id="bubble2">화이팅!</span><img class="slot" data-slot="2" src="assets/img/lying-trio.png" alt=""></span></h3>
+        <div class="praise" id="praise"><img class="slot" data-slot="3" src="assets/img/cheer-friends.png" alt=""><span>오늘 할 일 다 했어요! 최고 🎉</span></div>
         <div id="tasks"></div>
         <h3 class="sub-title">공부는 어땠나요?</h3>
         <div class="feel" id="feel">
@@ -307,11 +332,11 @@ tr.cur td{background:var(--tint)}
       </div>
       <div class="stack">
         <div class="card">
-          <h3>📝 오늘의 개념 세 문장 <span class="chip" id="conceptChip"></span><span class="cheer"><img class="slot" data-slot="4" alt=""></span></h3>
+          <h3>📝 오늘의 개념 세 문장 <span class="chip" id="conceptChip"></span><span class="cheer"><img class="slot" data-slot="4" src="assets/img/cheer-pompom.png" alt=""></span></h3>
           <div id="concepts"></div>
         </div>
         <div class="card">
-          <h3>👉 다음 공부 <span class="cheer"><img class="slot" data-slot="5" alt=""></span></h3>
+          <h3>👉 다음 공부 <span class="cheer"><img class="slot" data-slot="5" src="assets/img/lying-trio.png" alt=""></span></h3>
           <div class="next-row" id="next"></div>
         </div>
         <div class="card">
@@ -348,7 +373,7 @@ tr.cur td{background:var(--tint)}
       <span class="ribbon">나의 목표</span><div class="t" id="goalTitle">중1 수학 1학기 완주</div>
       <div class="s" id="goalSub">2026.10.12 → 2027.1월 중후반 · 내 속도에 맞춰 분량을 조절해요.</div>
     </div>
-    <div class="pic"><img class="slot" data-slot="6" alt=""><img class="slot" data-slot="7" alt=""></div>
+    <div class="pic"><img class="slot" data-slot="6" src="assets/img/cheer-friends.png" alt=""><img class="slot" data-slot="7" src="assets/img/cheer-pompom.png" alt=""></div>
     <div class="dd" id="dday"></div>
   </div>
 </div>
