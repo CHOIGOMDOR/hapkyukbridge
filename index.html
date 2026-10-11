@@ -640,6 +640,8 @@ function reviewQs(x){
   var key=String(x.task||"").replace(/^복습:\s*/,"");
   return DB.questions.filter(function(q){return q.key===key||q.key===x.unit});
 }
+function isMock(x){return !x.rep&&x.task==="단어 퀴즈 3문제"&&wIdx(TODAY)===6}
+function wordN(x){return isMock(x)?10:3}
 function quizKind(x){
   if(x.rep)return "";
   if(x.task==="단어 퀴즈 3문제")return "word";
@@ -657,9 +659,10 @@ function renderToday(){
 
   var h="";
   items.forEach(function(r){
-    var qk=quizKind(r), btn=qk?'<button type="button" class="qbtn" data-q="'+qk+'">'+(qk==="word"?"🎯 퀴즈 3문제":"🧠 복습 퀴즈")+'</button>':"";
+    var qk=quizKind(r), btn=qk?'<button type="button" class="qbtn" data-q="'+qk+'">'+(qk==="word"?(isMock(r)?"📝 모의시험 10문제":"🎯 퀴즈 3문제"):"🧠 복습 퀴즈")+'</button>':"";
     var link=/개념/.test(r.subject)?'<a '+(r.link?'href="'+esc(r.link)+'" target="_blank" rel="noopener"':'class="off"')+'>▶ 강의 보기</a>':"";
-    h+='<label class="task'+(r.done?" done":"")+'" data-id="'+esc(r.id)+'"><input type="checkbox"'+(r.done?" checked":"")+'><span class="subj">'+esc(r.subject)+'</span><span class="what">'+esc(r.task)+(r.range?' · <b>'+esc(r.range)+'</b>':"")+(r.unit?'<small>'+esc(r.unit)+'</small>':"")+'</span>'+btn+link+'</label>';
+    var tt=isMock(r)?"단어 모의시험":r.task,rg=isMock(r)?"10문제":r.range;
+    h+='<label class="task'+(r.done?" done":"")+'" data-id="'+esc(r.id)+'"><input type="checkbox"'+(r.done?" checked":"")+'><span class="subj">'+esc(r.subject)+'</span><span class="what">'+esc(tt)+(rg?' · <b>'+esc(rg)+'</b>':"")+(r.unit?'<small>'+esc(r.unit)+'</small>':"")+'</span>'+btn+link+'</label>';
   });
   $("tasks").innerHTML=h||'<div class="empty">오늘은 계획이 없어요. 푹 쉬어요 ☁️</div>';
   var doneN=items.filter(function(x){return x.done}).length;
@@ -758,7 +761,7 @@ function wordQuestion(v,type){
 }
 function buildWordSet(x){
   var us=unitsOf(x),pool=DB.vocab.filter(function(v){return usable(v)&&us.indexOf(v.u)>=0});
-  var ws=pickWords(pool,3),types=["mean","spell","pos"];
+  var ws=pickWords(pool,wordN(x)),types=["mean","spell","pos"];
   return ws.map(function(v,i){var t=types[i%3];if(t==="spell"&&!v.spell)t="mean";return wordQuestion(v,t)});
 }
 function buildReviewSet(x){
@@ -769,7 +772,7 @@ function openQuiz(id,kind){
   var x=dayItems(TODAY).filter(function(i){return String(i.id)===String(id)})[0];if(!x)return;
   var qs=kind==="word"?buildWordSet(x):buildReviewSet(x);
   if(!qs.length){toast(kind==="word"?"이 유닛 단어가 아직 없어요":"문제가 아직 없어요");return}
-  QZ={x:x,kind:kind,qs:qs,i:0,res:[],title:kind==="word"?"단어 퀴즈":"복습 퀴즈"};
+  QZ={x:x,kind:kind,qs:qs,i:0,res:[],title:kind==="word"?(isMock(x)?"단어 모의시험":"단어 퀴즈"):"복습 퀴즈"};
   showQ();
 }
 function closeQuiz(){$("quizModal").hidden=true;QZ=null;renderToday()}
@@ -804,7 +807,7 @@ function nextQ(){
   h+='<div class="qscore">'+good+' / '+tot+'<small>'+(good===tot?"모두 맞혔어요! 최고 🌟":good>=tot/2?"잘했어요, 틀린 건 다음에 또 나와요":"괜찮아요, 틀린 문제는 다시 나와요")+'</small></div>';
   var wr=QZ.res.filter(function(r){return !r.ok});
   if(wr.length)h+='<div class="qwrong">'+wr.map(function(r){return '<div><b>'+esc(r.q.prompt)+'</b> → '+esc(r.q.type==="spell"?r.q.answer:r.q.choices[r.q.ans])+'</div>'}).join("")+'</div>';
-  h+='<div class="qbtns"><button type="button" class="qgo" id="qMore">한 번 더 (3문제)</button><button type="button" class="qgo ghost" id="qClose2">닫기</button></div>';
+  h+='<div class="qbtns"><button type="button" class="qgo" id="qMore">한 번 더</button><button type="button" class="qgo ghost" id="qClose2">닫기</button></div>';
   $("quizBox").innerHTML=h;
 }
 function moreQuiz(){
