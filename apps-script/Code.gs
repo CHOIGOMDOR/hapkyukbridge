@@ -108,7 +108,7 @@ function apiPost(bodyJson) {
   try { return handle_(JSON.parse(bodyJson)); }
   catch (e) {
     var m = String(e && e.message || e);
-    if (/getFolderById|No item with the given ID|Invalid argument/i.test(m) && /photo|qaAnswer/.test(bodyJson.slice(0, 40))) m = '설정 탭의 사진폴더ID가 비어 있거나 잘못됐어요';
+    if (/getFolderById|No item with the given ID|Invalid argument|잘못된 파일 또는 폴더|파일 또는 폴더 ID|찾을 수 없/i.test(m) && /photo|qaAnswer/.test(bodyJson.slice(0, 40))) m = '설정 탭의 사진폴더ID가 비어 있거나 잘못됐어요';
     return { ok: false, error: m };
   }
 }
@@ -168,7 +168,7 @@ function handle_(b) {
     } else if (b.action === 'mood') {
       upsertLog(b.date, { 기분: b.mood });
     } else if (b.action === 'photo') {
-      var folder = DriveApp.getFolderById(settings_()['사진폴더ID']);
+      var folder = DriveApp.getFolderById(String(settings_()['사진폴더ID'] || '').trim());
       var blob = Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_' + b.name);
       var f = folder.createFile(blob);
       f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -181,7 +181,7 @@ function handle_(b) {
     } else if (b.action === 'qaAnswer') {
       var qs = sheet_('모르는문제'), qv = qs.getDataRange().getValues(), entry = { who: b.who, text: b.text || '', at: b.at, img: '', fid: '' };
       if (b.data) {
-        var af = DriveApp.getFolderById(settings_()['사진폴더ID']).createFile(Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_답변_' + b.name));
+        var af = DriveApp.getFolderById(String(settings_()['사진폴더ID'] || '').trim()).createFile(Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_답변_' + b.name));
         af.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
         entry.img = 'https://drive.google.com/thumbnail?id=' + af.getId() + '&sz=w1200'; entry.fid = af.getId();
       }
@@ -258,7 +258,7 @@ function setupTrigger() {
 function processTranscripts() {
   var st = settings_();
   if (!st['전사폴더ID'] || !st['API키']) { Logger.log('설정 탭에 전사폴더ID, API키를 먼저 넣어 주세요.'); return; }
-  var folder = DriveApp.getFolderById(st['전사폴더ID']);
+  var folder = DriveApp.getFolderById(String(st['전사폴더ID']).trim());
   var doneIt = folder.getFoldersByName('처리완료'), done = doneIt.hasNext() ? doneIt.next() : folder.createFolder('처리완료');
   var it = folder.getFiles(), n = 0;
   while (it.hasNext()) {
