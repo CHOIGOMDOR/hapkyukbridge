@@ -61,7 +61,7 @@ function setupSheets() {
   [['목표제목', '중1 수학 1학기 완주'], ['시작일', '2026-10-12'], ['목표일', '2027-01-20'],
    ['목표설명', '2026.10.12 → 2027.1월 중후반 · 내 속도에 맞춰 분량을 조절해요.'],
    ['이미지폴더ID', ''], ['사진폴더ID', ''], ['폰트파일ID', ''],
-   ['전사폴더ID', '137o9lPGy6DLn7x-LRxuEFDIQpNABjypv'], ['API키', ''], ['AI모델', 'gemini-2.5-flash']].forEach(function (r) { if (!have[r[0]]) st.appendRow(r); });
+   ['전사폴더ID', '137o9lPGy6DLn7x-LRxuEFDIQpNABjypv'], ['API키', ''], ['AI모델', 'gemini-3.8-flash']].forEach(function (r) { if (!have[r[0]]) st.appendRow(r); });
   ['Sheet1', '시트1'].forEach(function (n) { var d = ss.getSheetByName(n); if (d && ss.getSheets().length > 1 && d.getLastRow() === 0) ss.deleteSheet(d); });
   SpreadsheetApp.getUi && Logger.log('완료! 이제 배포 > 새 배포 > 웹 앱 으로 배포하세요.');
 }
@@ -259,7 +259,7 @@ function processTranscripts() {
       if (!text) { Logger.log('읽을 수 없는 파일(txt 또는 구글 문서로 올려 주세요): ' + f.getName()); continue; }
       var m = f.getName().match(/(\d{4})[-._]?(\d{2})[-._]?(\d{2})/);
       var date = m ? m[1] + '-' + m[2] + '-' + m[3] : Utilities.formatDate(f.getDateCreated(), TZ, 'yyyy-MM-dd');
-      var r = summarize_(text, st['API키'], st['AI모델'] || 'gemini-2.5-flash');
+      var r = summarize_(text, st['API키'], st['AI모델'] || 'gemini-3.8-flash');
       upsertLog(date, { 개념1: r.c1, 개념2: r.c2, 개념3: r.c3, 전사요약: r.summary });
       f.moveTo(done); n++;
       Logger.log('반영: ' + f.getName() + ' → ' + date);
@@ -287,9 +287,13 @@ function summarize_(text, key, model) {
       responseSchema: { type: 'OBJECT', properties: { c1: { type: 'STRING' }, c2: { type: 'STRING' }, c3: { type: 'STRING' }, summary: { type: 'STRING' } }, required: ['c1', 'c2', 'c3', 'summary'] }
     }
   };
-  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-    method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true
-  });
+  var res, tried = [model, 'gemini-3.8-flash', 'gemini-flash-latest'];   // 모델 이름이 바뀌어 404가 나면 다음 이름을 써요
+  for (var i = 0; i < tried.length; i++) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tried[i] + ':generateContent', {
+      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 404) break;
+  }
   if (res.getResponseCode() !== 200) throw new Error('AI 응답 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
   var j = JSON.parse(res.getContentText());
   return JSON.parse(j.candidates[0].content.parts[0].text);
