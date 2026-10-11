@@ -384,6 +384,19 @@ nav button[data-tab=log]::before{border-radius:50% 50% 0 50%}
 nav button.on{background:var(--tc);box-shadow:0 3px 0 var(--td);border-color:var(--td);font-weight:700;transform:translateY(-1px)}
 nav button.on::before{opacity:.9}
 @media(max-width:700px){nav button{padding:8px 2px;font-size:15px}}
+
+/* ===== 다음 공부 ===== */
+.nx-day{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.nx-day b{font-size:22px;color:#111;background:linear-gradient(135deg,var(--pri),var(--pri2));border:2.5px solid var(--deep);border-radius:999px;padding:4px 18px}
+.nx-day span{font-size:16px;color:#333}
+.nx-item{display:flex;align-items:center;gap:12px;margin:9px 0;padding:10px 12px;background:#fff;border:2.5px solid var(--bd);border-left:12px solid var(--bd);border-radius:16px;box-shadow:0 3px 0 var(--bd)}
+.nx-item i{flex:none;width:30px;height:30px;border-radius:50%;background:var(--bg2);border:2px solid var(--bd);color:#111;font-style:normal;font-size:17px;display:flex;align-items:center;justify-content:center}
+.nx-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.nx-t em{font-style:normal;font-size:13px;color:#333;background:var(--bg2);border-radius:8px;padding:1px 8px;align-self:flex-start}
+.nx-t strong{font-size:18px;color:#111;line-height:1.35;word-break:keep-all;overflow-wrap:break-word}
+.nxr{flex:none;font-size:16px;color:#111;background:var(--bg2);border:2px solid var(--bd);border-radius:12px;padding:3px 10px}
+.nx-item.c0{--bd:#9bd35a;--bg2:#e3f6c8}.nx-item.c1{--bd:#7fb2f5;--bg2:#dcecff}
+.nx-item.c2{--bd:#f58db0;--bg2:#ffe1ec}.nx-item.c3{--bd:#f5c542;--bg2:#fff1c4}
 </style>
 </head>
 <body>
@@ -745,10 +758,12 @@ function renderToday(){
   $("concepts").innerHTML=cs.length?cs.map(function(c,i){return '<div class="concept"><i>'+(i+1)+'</i><span>'+esc(c)+'</span></div>'}).join(""):'<div class="empty">공부 녹음을 올리면 여기에 세 문장으로 정리돼요 ✨</div>';
 
   var nx="";
-  if(lg&&lg.next){nx=esc(lg.next)}
+  if(lg&&lg.next){nx='<div class="nx-day"><b>다음 공부</b></div><div class="nx-item c0"><i>1</i><div class="nx-t"><strong>'+esc(lg.next)+'</strong></div></div>'}
   else{
     for(var k=1;k<=7;k++){var d2=addDays(TODAY,k),t=tasksOf(d2).filter(function(r){return !/학원/.test(r.subject)});
-      if(t.length){nx='<small>'+DAYN[wIdx(d2)]+'요일</small>'+t.slice(0,4).map(function(r){return '<div style="margin:3px 0">'+esc(r.task)+(r.range?' <span class="nxr">'+esc(r.range)+'</span>':"")+'</div>'}).join("");break}}
+      if(t.length){var md=d2.slice(5).replace("-","/");
+        nx='<div class="nx-day"><b>'+DAYN[wIdx(d2)]+'요일</b><span>'+md+(k===1?' · 내일':'')+'</span></div>'+
+          t.slice(0,5).map(function(r,i){return '<div class="nx-item c'+(i%4)+'"><i>'+(i+1)+'</i><div class="nx-t"><em>'+esc(r.subject)+'</em><strong>'+esc(r.task)+'</strong></div>'+(r.range?'<span class="nxr">'+esc(r.range)+'</span>':'')+'</div>'}).join("");break}}
   }
   $("next").innerHTML=nx||'<div class="empty">계획을 추가해 주세요</div>';
 
