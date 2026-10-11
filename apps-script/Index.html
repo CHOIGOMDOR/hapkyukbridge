@@ -397,6 +397,10 @@ nav button.on::before{opacity:.9}
 .nxr{flex:none;font-size:16px;color:#111;background:var(--bg2);border:2px solid var(--bd);border-radius:12px;padding:3px 10px}
 .nx-item.c0{--bd:#9bd35a;--bg2:#e3f6c8}.nx-item.c1{--bd:#7fb2f5;--bg2:#dcecff}
 .nx-item.c2{--bd:#f58db0;--bg2:#ffe1ec}.nx-item.c3{--bd:#f5c542;--bg2:#fff1c4}
+
+.micbtn{font:inherit;font-size:16px;color:#111;border:2.5px solid var(--deep);border-radius:12px;padding:8px 12px;cursor:pointer;background:#fff;touch-action:manipulation}
+.micbtn.rec{background:#ffe0e0;border-color:#e0524e;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.55}}
 </style>
 </head>
 <body>
@@ -485,6 +489,7 @@ nav button.on::before{opacity:.9}
       <div class="qaform">
         <textarea id="qaMemo" placeholder="뭐가 어려운지, 어디서 막혔는지 적어요 (예: 수학 p.20 3번, 왜 2로 나누는지 모르겠어요)" maxlength="300"></textarea>
         <div class="qarow">
+          <button type="button" class="micbtn" data-for="qaMemo">🎤 말로 입력</button>
           <label class="photo">📷 문제 사진 고르기<input id="qaFile" type="file" accept="image/*" hidden></label>
           <img id="qaPrev" class="hide" alt="">
           <button type="button" id="qaPost" class="qapost">➕ 카드 올리기</button>
@@ -830,7 +835,7 @@ function renderQA(){
       (q.memo?'<div class="qaq">'+esc(q.memo)+'</div>':'')+
       '<img class="qimg" src="'+esc(q.url)+'" alt="모르는 문제 사진">'+
       '<div class="qans">'+(ans||'<div class="empty" style="padding:6px 0">아직 답변이 없어요</div>')+'</div>'+
-      '<div class="qaadd"><select class="qwho">'+["엄마","아빠","나"].map(function(n){return '<option'+(n===wh?" selected":"")+'>'+n+'</option>'}).join("")+'</select><textarea class="qtext" placeholder="답변이나 설명을 적어요"></textarea>'+
+      '<div class="qaadd"><select class="qwho">'+["엄마","아빠","나"].map(function(n){return '<option'+(n===wh?" selected":"")+'>'+n+'</option>'}).join("")+'</select><textarea class="qtext" placeholder="답변이나 설명을 적어요"></textarea><button type="button" class="micbtn">🎤 말로</button>'+
       '<label class="photo">📷 사진<input class="qimgf" type="file" accept="image/*" hidden></label><img class="qaprev hide" alt=""><button type="button" class="qsend">답변 달기</button></div></div>';
   }).join("");
 }
@@ -1016,6 +1021,24 @@ $("qaList").addEventListener("click",function(e){
     if(LIVE)send({action:"qaDelete",id:id});
     toast("삭제했어요. 다 이해했구나! 🎉");
   }
+});
+
+/* ===== 말로 입력 (마이크) ===== */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition, REC=null;
+function stopMic(){if(REC){try{REC.stop()}catch(e){}REC=null}[].forEach.call(document.querySelectorAll(".micbtn.rec"),function(b){b.classList.remove("rec")})}
+function micFallback(){toast("이 화면에서는 마이크가 안 돼요. 키보드의 🎤 버튼을 눌러 말해 보세요")}
+document.addEventListener("click",function(e){
+  var b=e.target.closest(".micbtn");if(!b)return;
+  var ta=b.dataset.for?$(b.dataset.for):b.parentNode.querySelector("textarea");if(!ta)return;
+  if(b.classList.contains("rec")){stopMic();return}
+  stopMic();
+  if(!SR){micFallback();return}
+  var r=new SR(),base=ta.value?ta.value.replace(/\s*$/," "):"";
+  r.lang="ko-KR";r.interimResults=true;r.continuous=true;
+  r.onresult=function(ev){var t="";for(var i=0;i<ev.results.length;i++)t+=ev.results[i][0].transcript;ta.value=base+t};
+  r.onerror=function(ev){stopMic();if(ev.error==="not-allowed"||ev.error==="service-not-allowed"||ev.error==="audio-capture")micFallback();else if(ev.error!=="no-speech"&&ev.error!=="aborted")toast("잘 못 들었어요. 다시 눌러 말해 주세요")};
+  r.onend=function(){b.classList.remove("rec");if(REC===r)REC=null};
+  try{r.start();REC=r;b.classList.add("rec");toast("말해 보세요 🎤 (다시 누르면 끝)")}catch(x){micFallback()}
 });
 $("minAdd").addEventListener("click",function(){
   var h=+$("minH").value||0,m=+$("minM").value||0;addMinutes(h*60+m);$("minH").value="";$("minM").value="";
