@@ -45,6 +45,7 @@ function setupSheets() {
   importSheet_(ss, '문제', SRC_QUESTIONS, 20);
   EXTRA_SOURCES.forEach(function (x) { appendMore_(ss, x.tab, x.id); });
   ensure_(ss, '기록', LOG_COLS);
+  ensure_(ss, '모르는문제', ['ID', '날짜', '사진URL', '메모', '답변', '파일ID']);
   ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
   ensure_(ss, '반복체크', ['날짜', '항목']);
   ensure_(ss, '퀴즈기록', ['날짜', '종류', '키', '정답']);
@@ -131,6 +132,10 @@ function getAll_() {
     .map(function (r) { return { date: ymd_(r[0]), kind: String(r[1]), key: String(r[2]), ok: r[3] === 1 || r[3] === true || r[3] === '1' || r[3] === 'TRUE' }; });
   var questions = rows_('문제').filter(function (r) { return r[1] && r[2]; })
     .map(function (r) { return { subject: String(r[0]), key: String(r[1]), q: String(r[2]), opts: [r[3], r[4], r[5], r[6]].map(String), ans: Number(r[7]), exp: String(r[8] || '') }; });
+  var qa = rows_('모르는문제').filter(function (r) { return r[0] && r[2]; }).map(function (r) {
+    var ans = []; try { ans = JSON.parse(r[4] || '[]'); } catch (e) {}
+    return { id: String(r[0]), date: ymd_(r[1]), url: String(r[2]), memo: String(r[3] || ''), answers: ans };
+  });
   var images = [];
   if (st['이미지폴더ID']) {
     var it = DriveApp.getFolderById(st['이미지폴더ID']).getFiles();
@@ -140,7 +145,7 @@ function getAll_() {
     }
   }
   return {
-    plan: plan, log: log, vocab: vocab, repeats: repeats, rchecks: rchecks, minutes: minutes, qlog: qlog, questions: questions, images: images,
+    plan: plan, log: log, vocab: vocab, repeats: repeats, rchecks: rchecks, minutes: minutes, qlog: qlog, questions: questions, qa: qa, images: images,
     goal: { title: st['목표제목'] || '', start: ymd_(st['시작일']), end: ymd_(st['목표일']), sub: st['목표설명'] || '' }
   };
 }
@@ -158,9 +163,23 @@ function handle_(b) {
       var blob = Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_' + b.name);
       var f = folder.createFile(blob);
       f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      var url = 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w600';
-      var cur = (getLog_(b.date) || {})['사진'];
-      upsertLog(b.date, { 사진: cur ? cur + ',' + url : url });
+      var url = 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w1200';
+      var id = b.id || ('q' + Date.now());
+      appendText_('모르는문제', [id, b.date, url, b.memo || '', '[]', f.getId()]);
+      return { ok: true, id: id, url: url };
+    } else if (b.action === 'qaAnswer') {
+      var qs = sheet_('모르는문제'), qv = qs.getDataRange().getValues();
+      for (var i = 1; i < qv.length; i++) if (String(qv[i][0]) === String(b.id)) {
+        var arr = []; try { arr = JSON.parse(qv[i][4] || '[]'); } catch (e) {}
+        arr.push({ who: b.who, text: b.text, at: b.at });
+        qs.getRange(i + 1, 5).setValue(JSON.stringify(arr)); break;
+      }
+    } else if (b.action === 'qaDelete') {
+      var ds = sheet_('모르는문제'), dv = ds.getDataRange().getValues();
+      for (var j = dv.length - 1; j >= 1; j--) if (String(dv[j][0]) === String(b.id)) {
+        try { if (dv[j][5]) DriveApp.getFileById(String(dv[j][5])).setTrashed(true); } catch (e) {}
+        ds.deleteRow(j + 1);
+      }
     } else if (b.action === 'minutes') {
       appendText_('순공시간', [b.date, Number(b.min), Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss')]);
     } else if (b.action === 'minutesUndo') {

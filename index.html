@@ -334,6 +334,26 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
 .qwrong{background:var(--soft);border-radius:16px;padding:10px 14px;margin:10px 0;font-size:17px;color:#111;line-height:1.7}
 .qbtns{display:flex;gap:10px}.qbtns .qgo{flex:1}
 @media(max-width:480px){.timebig{font-size:40px}.qprompt{font-size:26px}.qc{font-size:19px}}
+
+/* ===== 모르는 문제 탭 ===== */
+.qaform{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.qaform input[type=text]{flex:1;min-width:180px;font:inherit;font-size:17px;padding:10px 12px;border:2.5px solid var(--pri);border-radius:14px;color:#111;background:#fff}
+.qaitem{border:2.5px solid var(--pri);border-radius:18px;padding:12px;margin:14px 0;background:linear-gradient(180deg,#fff,var(--soft))}
+.qaitem .qh{display:flex;gap:8px;align-items:center;font-size:18px;color:#111;margin-bottom:8px;flex-wrap:wrap}
+.qaitem .qh .chip{margin-left:0}
+.qaitem img.qimg{display:block;max-width:100%;max-height:420px;border-radius:14px;border:2px solid var(--line);cursor:zoom-in;margin:0 auto}
+.qaitem img.qimg.big{max-height:none}
+.qans{margin-top:10px}
+.qans .a{background:#fff;border-left:7px solid var(--pri2);border-radius:12px;padding:8px 12px;margin:6px 0;font-size:17px;color:#111;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.qans .a b{color:var(--deep);margin-right:6px}
+.qans .a small{color:#555;margin-left:6px}
+.qaadd{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.qaadd select,.qaadd input,.qaadd textarea{font:inherit;font-size:16px;padding:8px 10px;border:2.5px solid var(--pri);border-radius:12px;background:#fff;color:#111}
+.qaadd textarea{flex:1;min-width:160px;min-height:44px;resize:vertical}
+.qaadd button,.qadel{font:inherit;font-size:16px;color:#111;border:2.5px solid var(--deep);border-radius:12px;padding:8px 14px;cursor:pointer;background:linear-gradient(135deg,var(--pri),var(--pri2))}
+.qadel{background:#fff;border-color:#e0524e;margin-left:auto}
+.qadel.sure{background:#ffe0e0;font-weight:700}
+.note{color:#3d3a4f;font-size:15px;margin:8px 0 0}
 </style>
 </head>
 <body>
@@ -347,6 +367,7 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
     <nav>
       <button class="on" data-tab="today">오늘의 공부</button>
       <button data-tab="plan">주간 계획</button>
+      <button data-tab="qa">모르는 문제</button>
       <button data-tab="log">공부 기록</button>
     </nav>
     <div class="clock"><span id="date"></span><b id="time"></b>대한민국 표준시(KST)</div>
@@ -379,6 +400,7 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
           <label class="photo">🖼 모르는 문제 사진 올리기<input id="file" type="file" accept="image/*" multiple hidden></label>
         </div>
         <div class="thumbs" id="thumbs"></div>
+        <p class="note">올린 사진은 <b>모르는 문제</b> 탭에 쌓여요.</p>
       </div>
       <div class="stack">
         <div class="card">
@@ -411,12 +433,24 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
   <!-- 주간 계획 -->
   <section id="plan" class="hide">
     <div class="card" style="margin-top:16px">
-      <h3>이번 주 계획 <span class="chip">월~일</span></h3>
+      <h3>이번 주 계획 <span class="chip">일~토</span></h3>
       <div id="planTable"></div>
     </div>
   </section>
 
   <!-- 공부 기록 -->
+  <section id="qa" class="hide">
+    <div class="card" style="margin-top:16px">
+      <h3>🖼 모르는 문제 <span class="chip" id="qaCount"></span></h3>
+      <div class="qaform">
+        <input id="qaMemo" type="text" placeholder="어떤 문제예요? (과목·쪽수, 선택)" maxlength="80">
+        <label class="photo">📷 사진 올리기<input id="qaFile" type="file" accept="image/*" multiple hidden></label>
+      </div>
+      <p class="note">사진을 올리면 여기에 계속 쌓여요. 엄마·아빠가 답을 달아 주고, 다 이해했으면 삭제해요.</p>
+      <div id="qaList"></div>
+    </div>
+  </section>
+
   <section id="log" class="hide">
     <div class="card" style="margin-top:16px">
       <h3>공부 기록 <span class="chip">차곡차곡 쌓여요</span></h3>
@@ -494,12 +528,14 @@ function assignImages(){
 document.addEventListener("click",function(e){var el=e.target.closest&&e.target.closest("img.slot");if(!el)return;el.dataset.off=(+(el.dataset.off||0)+1);assignImages()});
 
 /* ============ 데이터 ============ */
-var DB = {plan:[],log:[],vocab:[],repeats:[],rchecks:[],minutes:[],qlog:[],questions:[],mood:{}};
-var KINDS=["학원","수학","학원","수학","학원","쉬는 날","한국사"];
+var DB = {plan:[],log:[],vocab:[],repeats:[],rchecks:[],minutes:[],qlog:[],questions:[],qa:[],mood:{}};
+var SUN=["일","월","화","수","목","금","토"];                       // 한 주는 일요일에 시작해요
+var KINDS=["한국사","학원","수학","학원","수학","학원","쉬는 날"]; // 일~토 순서
+function sIdx(d){return (wIdx(d)+1)%7}
 var POS_LABEL={"n.":"명사","v.":"동사","adj.":"형용사","adv.":"부사","prep.":"전치사","phr.":"구(숙어)","phr. v.":"구동사","pron.":"대명사"};
 
 function samplePlan(){
-  var mon=addDays(TODAY,-wIdx(TODAY)), rows=[], id=0;
+  var mon=addDays(weekStart(TODAY),1), rows=[], id=0;
   function add(d,subj,unit,task,range){rows.push({id:"s"+(id++),date:addDays(mon,d),subject:subj,unit:unit,task:task,range:range||"",link:"",done:false})}
   var AC=["5:10~8:00","","5:20~9:00","","5:10~8:00"];
   [0,2,4].forEach(function(d){add(d,"영어 학원","Pine English School","영어 학원 ("+AC[d]+")");add(d,"수학 · 연산","소인수분해","연산 학습지","30분")});
@@ -526,7 +562,7 @@ function applyData(j){
   DB.plan=j.plan||[]; DB.log=j.log||[]; DB.mood={};
   DB.log.forEach(function(l){if(l.mood)DB.mood[l.date]=l.mood});
   DB.vocab=(j.vocab||[]).map(toVocab);
-  DB.repeats=j.repeats||[]; DB.rchecks=j.rchecks||[]; DB.minutes=j.minutes||[]; DB.qlog=j.qlog||[]; DB.questions=j.questions||[];
+  DB.qa=j.qa||[]; DB.repeats=j.repeats||[]; DB.rchecks=j.rchecks||[]; DB.minutes=j.minutes||[]; DB.qlog=j.qlog||[]; DB.questions=j.questions||[];
   if(j.images&&j.images.length)IMAGES=IMAGES.concat(j.images);
   if(j.goal){for(var k in j.goal){if(j.goal[k])GOAL[k]=j.goal[k]}}
 }
@@ -566,7 +602,7 @@ function tick(){
 
 /* ============ 오늘 할 일 계산 ============ */
 function tasksOf(date){return DB.plan.filter(function(r){return r.date===date})}
-function weekStart(d){return addDays(d,-wIdx(d))}
+function weekStart(d){return addDays(d,-sIdx(d))}
 function repeatItems(date){
   var out=[], wi=wIdx(date), mon=weekStart(date), sun=addDays(mon,6);
   DB.repeats.forEach(function(r){
@@ -654,7 +690,7 @@ function renderToday(){
   $("planChip").textContent=LIVE?"":"예시 분량";
 
   var mon=weekStart(TODAY),w="";
-  for(var i=0;i<7;i++){var ds=addDays(mon,i);w+='<div class="'+(ds===TODAY?"today":"")+(allDone(ds)?" done":"")+'">'+DAYN[i]+'<small>'+KINDS[i]+'</small></div>'}
+  for(var i=0;i<7;i++){var ds=addDays(mon,i);w+='<div class="'+(ds===TODAY?"today":"")+(allDone(ds)?" done":"")+'">'+SUN[i]+'<small>'+KINDS[i]+'</small></div>'}
   $("week").innerHTML=w;
 
   var h="";
@@ -703,8 +739,8 @@ function renderPlan(){
   var mon=weekStart(TODAY),h='<table><tr><th>요일</th><th>과목</th><th>분량</th></tr>';
   for(var i=0;i<7;i++){
     var ds=addDays(mon,i),t=dayItems(ds);
-    if(!t.length){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+DAYN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small></td><td colspan="2" style="color:var(--sub)">쉬는 날</td></tr>';continue}
-    t.forEach(function(r,k){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+(k?"":DAYN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small>')+'</td><td>'+esc(r.subject)+'</td><td>'+(r.done?"✅ ":"")+esc(r.task+(r.range?" · "+r.range:""))+'</td></tr>'});
+    if(!t.length){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+SUN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small></td><td colspan="2" style="color:var(--sub)">쉬는 날</td></tr>';continue}
+    t.forEach(function(r,k){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+(k?"":SUN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small>')+'</td><td>'+esc(r.subject)+'</td><td>'+(r.done?"✅ ":"")+esc(r.task+(r.range?" · "+r.range:""))+'</td></tr>'});
   }
   $("planTable").innerHTML=h+'</table>';
 }
@@ -721,7 +757,36 @@ function renderLog(){
       (l.summary?'<p class="tr">🎙 '+esc(l.summary)+'</p>':"")+(l.next?'<p>👉 '+esc(l.next)+'</p>':"")+ph+'</div>';
   }).join("");
 }
-function renderAll(){applyTheme();renderToday();renderPlan();renderLog();$("goalTitle").textContent=GOAL.title;$("goalSub").textContent=GOAL.sub;tick()}
+function compressImage(file,cb){
+  var rd=new FileReader();
+  rd.onload=function(){
+    var im=new Image();
+    im.onload=function(){
+      var M=1600,w=im.width,h=im.height,k=Math.min(1,M/Math.max(w,h));
+      var c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      var u=c.toDataURL("image/jpeg",0.82);cb(u,u.split(",")[1],"image/jpeg");
+    };
+    im.onerror=function(){cb(String(rd.result),String(rd.result).split(",")[1],file.type||"image/jpeg")};
+    im.src=rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+function who(){try{return localStorage.getItem("qa-who")||"엄마"}catch(e){return "엄마"}}
+function renderQA(){
+  var L=DB.qa.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:(String(b.id)>String(a.id)?1:-1)});
+  $("qaCount").textContent=L.length?L.length+"개":"없어요";
+  if(!L.length){$("qaList").innerHTML='<div class="empty">모르는 문제 사진이 아직 없어요 ✨</div>';return}
+  var wh=who();
+  $("qaList").innerHTML=L.map(function(q){
+    var ans=(q.answers||[]).map(function(a){return '<div class="a"><b>'+esc(a.who)+'</b>'+esc(a.text)+'<small>'+esc(a.at||"")+'</small></div>'}).join("");
+    return '<div class="qaitem" data-id="'+esc(q.id)+'"><div class="qh"><span class="chip">'+q.date.slice(5).replace("-","/")+' ('+DAYN[wIdx(q.date)]+')</span><span>'+esc(q.memo||"모르는 문제")+'</span><button type="button" class="qadel">🗑 이해했어요 (삭제)</button></div>'+
+      '<img class="qimg" src="'+esc(q.url)+'" alt="모르는 문제 사진">'+
+      '<div class="qans">'+(ans||'<div class="empty" style="padding:6px 0">아직 답변이 없어요</div>')+'</div>'+
+      '<div class="qaadd"><select class="qwho">'+["엄마","아빠","나"].map(function(n){return '<option'+(n===wh?" selected":"")+'>'+n+'</option>'}).join("")+'</select><textarea class="qtext" placeholder="답변이나 설명을 적어요"></textarea><button type="button" class="qsend">답변 달기</button></div></div>';
+  }).join("");
+}
+function renderAll(){applyTheme();renderToday();renderPlan();renderQA();renderLog();$("goalTitle").textContent=GOAL.title;$("goalSub").textContent=GOAL.sub;tick()}
 
 /* ============ 퀴즈 ============ */
 var QZ=null;
@@ -849,12 +914,49 @@ $("feel").addEventListener("click",function(e){
   else send({action:"mood",date:TODAY,mood:b.dataset.v});
   renderToday();toast("기록했어요 ✏️");
 });
-$("file").addEventListener("change",function(e){
-  [].forEach.call(e.target.files,function(f){
-    var i=new Image();i.src=URL.createObjectURL(f);$("thumbs").appendChild(i);
-    if(LIVE){var rd=new FileReader();rd.onload=function(){send({action:"photo",date:TODAY,name:f.name,mime:f.type,data:String(rd.result).split(",")[1]}).then(function(){toast("사진을 저장했어요 📷")})};rd.readAsDataURL(f)}
+function uploadPhotos(files,memo){
+  [].forEach.call(files,function(f){
+    compressImage(f,function(url,b64,mime){
+      var id="q"+Date.now()+Math.floor(Math.random()*1000);
+      if(LIVE){
+        toast("사진을 올리는 중이에요… 📤");
+        send({action:"photo",id:id,date:TODAY,name:f.name,mime:mime,data:b64,memo:memo||""}).then(function(r){
+          if(r&&r.url){DB.qa.push({id:r.id||id,date:TODAY,url:r.url,memo:memo||"",answers:[]});renderQA();toast("모르는 문제에 저장했어요 📷")}
+        });
+      }else{
+        DB.qa.push({id:id,date:TODAY,url:url,memo:memo||"",answers:[]});renderQA();toast("예시 모드: 이 화면에서만 보여요");
+      }
+    });
   });
-  if(!LIVE)toast("예시 모드: 사진은 화면에만 보여요");
+}
+$("file").addEventListener("change",function(e){
+  [].forEach.call(e.target.files,function(f){var i=new Image();i.src=URL.createObjectURL(f);$("thumbs").appendChild(i)});
+  uploadPhotos(e.target.files,"");e.target.value="";
+});
+$("qaFile").addEventListener("change",function(e){
+  var m=$("qaMemo").value.trim();uploadPhotos(e.target.files,m);$("qaMemo").value="";e.target.value="";
+});
+$("qaList").addEventListener("click",function(e){
+  var it=e.target.closest(".qaitem");if(!it)return;
+  var id=it.dataset.id,q=DB.qa.filter(function(x){return String(x.id)===id})[0];if(!q)return;
+  var im=e.target.closest("img.qimg");if(im){im.classList.toggle("big");return}
+  var sb=e.target.closest(".qsend");
+  if(sb){
+    var t=it.querySelector(".qtext").value.trim(),w=it.querySelector(".qwho").value;
+    if(!t){toast("답변을 적어 주세요");return}
+    try{localStorage.setItem("qa-who",w)}catch(x){}
+    var o=parts(),at=(+o.month.replace("월",""))+"/"+(+o.day.replace("일",""));
+    q.answers=q.answers||[];q.answers.push({who:w,text:t,at:at});renderQA();
+    if(LIVE)send({action:"qaAnswer",id:id,who:w,text:t,at:at});
+    toast("답변을 달았어요 💬");return;
+  }
+  var db=e.target.closest(".qadel");
+  if(db){
+    if(!db.classList.contains("sure")){db.classList.add("sure");db.textContent="정말 삭제? 한 번 더 눌러요";setTimeout(function(){db.classList.remove("sure");db.textContent="🗑 이해했어요 (삭제)"},3500);return}
+    DB.qa=DB.qa.filter(function(x){return String(x.id)!==id});renderQA();
+    if(LIVE)send({action:"qaDelete",id:id});
+    toast("삭제했어요. 다 이해했구나! 🎉");
+  }
 });
 $("minAdd").addEventListener("click",function(){
   var h=+$("minH").value||0,m=+$("minM").value||0;addMinutes(h*60+m);$("minH").value="";$("minM").value="";
@@ -864,7 +966,7 @@ $("minUndo").addEventListener("click",undoMinutes);
 [].forEach.call(document.querySelectorAll("nav button"),function(b){
   b.addEventListener("click",function(){
     [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});
-    ["today","plan","log"].forEach(function(id){$(id).classList.toggle("hide",id!==b.dataset.tab)});
+    ["today","plan","qa","log"].forEach(function(id){$(id).classList.toggle("hide",id!==b.dataset.tab)});
   });
 });
 
