@@ -560,7 +560,7 @@ function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
 function josa(w,a,b){var c=w.charCodeAt(w.length-1);if(c<0xAC00||c>0xD7A3)return a;return (c-0xAC00)%28?a:b}
-function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");setTimeout(function(){t.classList.remove("on")},1800)}
+var toastT;function toast(m,ms){var t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove("on")},ms||1800)}
 function lget(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function lset(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 var CHEERS=["오늘도 화이팅! 💪","한 걸음씩, 천천히 가자","잘하고 있어, 치즈볼!","모르는 건 사진 찍어 두기 📷","오늘 할 일 다 하면 ⭐","수학은 하다 보면 쉬워져","차근차근 하나씩 ✨","작은 습관이 큰 실력!","쉬엄쉬엄 해도 괜찮아","오늘의 나, 칭찬해 🎉"];
@@ -633,7 +633,7 @@ function loadData(){
 }
 function send(body){
   if(HAS_GS){
-    return new Promise(function(ok){google.script.run.withSuccessHandler(ok).withFailureHandler(function(){toast("저장이 안 됐어요. 다시 시도해 줘요");ok()}).apiPost(JSON.stringify(body))});
+    return new Promise(function(ok){google.script.run.withSuccessHandler(function(r){if(r&&r.ok===false){toast("저장이 안 됐어요: "+(r.error||"알 수 없는 오류"),6000);ok()}else ok(r)}).withFailureHandler(function(er){toast("저장이 안 됐어요: "+((er&&er.message)||"연결을 확인해 주세요"),6000);ok()}).apiPost(JSON.stringify(body))});
   }
   if(!LIVE)return Promise.resolve();
   return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)}).then(function(r){return r.json()}).catch(function(){toast("저장이 안 됐어요. 다시 시도해 줘요")});
@@ -813,14 +813,15 @@ function compressImage(file,cb){
   rd.onload=function(){
     var im=new Image();
     im.onload=function(){
-      var M=1600,w=im.width,h=im.height,k=Math.min(1,M/Math.max(w,h));
+      var M=1280,w=im.width,h=im.height,k=Math.min(1,M/Math.max(w,h));
       var c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
       c.getContext("2d").drawImage(im,0,0,c.width,c.height);
-      var u=c.toDataURL("image/jpeg",0.82);cb(u,u.split(",")[1],"image/jpeg");
+      var u=c.toDataURL("image/jpeg",0.78);cb(u,u.split(",")[1],"image/jpeg");
     };
     im.onerror=function(){cb(String(rd.result),String(rd.result).split(",")[1],file.type||"image/jpeg")};
     im.src=rd.result;
   };
+  rd.onerror=function(){toast("사진을 읽지 못했어요. 다른 사진으로 해 보세요",5000)};
   rd.readAsDataURL(file);
 }
 function who(){try{return localStorage.getItem("qa-who")||"엄마"}catch(e){return "엄마"}}
@@ -970,7 +971,7 @@ $("feel").addEventListener("click",function(e){
 var QSTAGE=null, ASTAGE={};
 $("qaFile").addEventListener("change",function(e){
   var f=e.target.files[0];if(!f)return;
-  compressImage(f,function(url,b64,mime){QSTAGE={url:url,b64:b64,mime:mime,name:f.name};$("qaPrev").src=url;$("qaPrev").classList.remove("hide")});
+  compressImage(f,function(url,b64,mime){QSTAGE={url:url,b64:b64,mime:mime,name:f.name};$("qaPrev").src=url;$("qaPrev").classList.remove("hide");toast("사진을 골랐어요 ✅ 이제 [카드 올리기]를 눌러요")});
   e.target.value="";
 });
 $("qaPost").addEventListener("click",function(){
@@ -981,6 +982,7 @@ $("qaPost").addEventListener("click",function(){
     toast("올리는 중이에요… 📤");
     send({action:"photo",id:id,date:TODAY,name:st.name,mime:st.mime,data:st.b64,memo:memo}).then(function(r){
       if(r&&r.url){DB.qa.push({id:r.id||id,date:TODAY,url:r.url,memo:memo,answers:[]});renderQA();toast("모르는 문제 카드를 만들었어요 📷")}
+      else{QSTAGE=st;$("qaMemo").value=memo;$("qaPrev").classList.remove("hide")}   // 실패하면 다시 누를 수 있게 되돌려요
     });
   }else{
     DB.qa.push({id:id,date:TODAY,url:st.url,memo:memo,answers:[]});renderQA();toast("예시 모드: 이 화면에서만 보여요");
@@ -1026,11 +1028,11 @@ $("qaList").addEventListener("click",function(e){
 /* ===== 말로 입력 (마이크) ===== */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition, REC=null;
 function stopMic(){if(REC){try{REC.stop()}catch(e){}REC=null}[].forEach.call(document.querySelectorAll(".micbtn.rec"),function(b){b.classList.remove("rec")})}
-function micFallback(){toast("이 화면에서는 마이크가 안 돼요. 키보드의 🎤 버튼을 눌러 말해 보세요")}
+var MICTA=null;function micFallback(){if(MICTA)try{MICTA.focus()}catch(e){}toast("이 화면은 마이크를 막고 있어요. 올라온 키보드의 🎤(마이크) 버튼을 눌러 말해 보세요",7000)}
 document.addEventListener("click",function(e){
   var b=e.target.closest(".micbtn");if(!b)return;
   var ta=b.dataset.for?$(b.dataset.for):b.parentNode.querySelector("textarea");if(!ta)return;
-  if(b.classList.contains("rec")){stopMic();return}
+  MICTA=ta;if(b.classList.contains("rec")){stopMic();return}
   stopMic();
   if(!SR){micFallback();return}
   var r=new SR(),base=ta.value?ta.value.replace(/\s*$/," "):"";

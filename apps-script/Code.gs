@@ -104,7 +104,14 @@ function doPost(e) { return json_(handle_(JSON.parse(e.postData.contents))); }
 
 /** 페이지(google.script.run)가 부르는 함수들 */
 function apiGet() { return getAll_(); }
-function apiPost(bodyJson) { return handle_(JSON.parse(bodyJson)); }
+function apiPost(bodyJson) {
+  try { return handle_(JSON.parse(bodyJson)); }
+  catch (e) {
+    var m = String(e && e.message || e);
+    if (/getFolderById|No item with the given ID|Invalid argument/i.test(m) && /photo|qaAnswer/.test(bodyJson.slice(0, 40))) m = '설정 탭의 사진폴더ID가 비어 있거나 잘못됐어요';
+    return { ok: false, error: m };
+  }
+}
 function getFontBase64() {
   var id = settings_()['폰트파일ID'];
   if (!id) return '';
