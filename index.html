@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>치즈볼의 덕질 공부 노트</title>
+<style>
+:root{--bg:#f6f4ff;--card:#fff;--ink:#2b2740;--sub:#7a7692;--line:#ebe8f7;--pri:#7c5cff;--pri-soft:#efeaff;--ok:#2fa86b;--ok-soft:#e5f6ed;--warn:#e8913a;--warn-soft:#fff2e2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:16px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:22px}
+.clock{text-align:right;font-size:13px;color:var(--sub);line-height:1.4}
+.clock b{display:block;font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+nav{display:flex;gap:4px;margin:14px 0 12px;border-bottom:2px solid var(--line)}
+nav button{flex:1;background:none;border:0;padding:10px 4px;font:inherit;font-size:15px;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+nav button.on{color:var(--pri);font-weight:700;border-color:var(--pri)}
+.week{display:flex;gap:6px;margin-bottom:12px}
+.week div{flex:1;text-align:center;font-size:12px;padding:7px 0;border-radius:10px;background:#ece9f8;color:var(--sub)}
+.week .today{background:var(--pri);color:#fff;font-weight:700}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 5px rgba(60,40,120,.08)}
+.card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:8px}
+.chip{font-size:11px;font-weight:500;background:var(--pri-soft);color:var(--pri);padding:2px 8px;border-radius:10px}
+.item{display:flex;align-items:center;gap:10px;padding:11px 10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fcfbff}
+.item input{width:22px;height:22px;accent-color:var(--pri);flex:none}
+.item .sub{font-size:12px;font-weight:700;color:var(--pri);min-width:62px}
+.item .what{flex:1;font-size:14.5px}
+.item.done .what{color:var(--sub);text-decoration:line-through}
+.item a{font-size:12px;color:var(--pri);border:1px solid var(--pri);border-radius:8px;padding:5px 9px;text-decoration:none;white-space:nowrap}
+.feel{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.feel button,.photo{font:inherit;font-size:14px;padding:9px 14px;border-radius:12px;border:1.5px solid var(--line);background:#fff;cursor:pointer}
+.feel button.on[data-v="easy"]{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.feel button.on[data-v="ok"]{border-color:#999;background:#f0f0f0}
+.feel button.on[data-v="hard"]{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+.photo{border-color:var(--pri);color:var(--pri);display:inline-block}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.thumbs img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.sum p{margin:0 0 8px;font-size:14.5px;line-height:1.6}
+.next{background:var(--warn-soft)}
+.goal{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#fff,#efeaff)}
+.goal svg{flex:none}
+.goal .t{font-weight:800;font-size:17px}
+.goal .s{font-size:12.5px;color:var(--sub);margin-top:2px}
+.goal .dd{margin-left:auto;text-align:right;font-weight:800;font-size:26px;color:var(--pri)}
+.goal .dd small{display:block;font-size:11px;font-weight:500;color:var(--sub)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--sub);font-weight:500;font-size:12px}
+.hide{display:none}
+.note{font-size:12px;color:var(--sub);margin-top:6px}
+@media(max-width:480px){.item .sub{min-width:52px}.goal .dd{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧀 치즈볼의 덕질 공부 노트</h1>
+    <div class="clock"><span id="date"></span><b id="time"></b>대한민국 표준시(KST)</div>
+  </header>
+
+  <nav>
+    <button class="on" data-tab="today">오늘의 공부</button>
+    <button data-tab="plan">주간 계획</button>
+    <button data-tab="log">공부 기록</button>
+  </nav>
+
+  <!-- 오늘의 공부 -->
+  <section id="today">
+    <div class="week" id="week"></div>
+    <div class="card">
+      <h2>오늘 할 공부 <span class="chip">예시 분량</span></h2>
+      <div id="tasks"></div>
+      <h2 style="margin-top:18px">공부는 어땠나요?</h2>
+      <div class="feel" id="feel">
+        <button data-v="easy">🙂 쉬웠어요</button>
+        <button data-v="ok">😐 괜찮았어요</button>
+        <button data-v="hard">😟 어려웠어요</button>
+        <label class="photo">🖼 어렵거나 모르는 문제 사진 올리기
+          <input id="file" type="file" accept="image/*" multiple hidden>
+        </label>
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+    <div class="card sum">
+      <h2>오늘의 개념 세 문장 <span class="chip">학습 후 예시</span></h2>
+      <p>① 소수는 약수가 2개인 자연수예요.</p>
+      <p>② 소인수분해는 소수들의 곱으로 나타내는 거예요.</p>
+      <p>③ 작은 소수부터 차례로 나누어 보세요.</p>
+    </div>
+    <div class="card next">
+      <h2>다음 공부</h2>
+      <div style="font-size:14.5px;line-height:1.7"><b>목요일</b> · 같은 개념 다지기<br>개념원리 소인수분해 p.20~23, 쎈 p.14~17</div>
+    </div>
+  </section>
+
+  <!-- 주간 계획 -->
+  <section id="plan" class="hide">
+    <div class="card">
+      <h2>이번 주 계획 <span class="chip">구글 시트 연결 예정</span></h2>
+      <table>
+        <tr><th>요일</th><th>과목</th><th>분량</th></tr>
+        <tr><td>월</td><td>수학 연산</td><td>학습지 2장</td></tr>
+        <tr><td>화</td><td>수학 진도</td><td>EBS 강의 1개 + 교재 p.12~14</td></tr>
+        <tr><td>수</td><td>수학 연산</td><td>학습지 2장</td></tr>
+        <tr><td>목</td><td>수학 진도</td><td>개념원리 p.20~23 · 쎈 p.14~17</td></tr>
+        <tr><td>금</td><td>수학 연산</td><td>학습지 2장</td></tr>
+        <tr><td>토</td><td>과학</td><td>교재 정하면 입력</td></tr>
+        <tr><td>일</td><td>역사</td><td>교재 정하면 입력</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 공부 기록 -->
+  <section id="log" class="hide">
+    <div class="card">
+      <h2>공부 기록 <span class="chip">구글 시트 연결 예정</span></h2>
+      <table>
+        <tr><th>날짜</th><th>한 일</th><th>느낌</th></tr>
+        <tr><td>10/12 (월)</td><td>연산 2장</td><td>🙂</td></tr>
+        <tr><td>10/13 (화)</td><td>소인수분해 강의 1개 · 교재 3쪽</td><td>😟</td></tr>
+      </table>
+      <p class="note">예시 내용이에요. 시트가 연결되면 실제 기록이 나와요.</p>
+    </div>
+  </section>
+
+  <div class="card goal">
+    <svg width="46" height="46" viewBox="0 0 46 46" fill="none" stroke="#7c5cff" stroke-width="3"><circle cx="23" cy="23" r="19"/><circle cx="23" cy="23" r="12"/><circle cx="23" cy="23" r="4" fill="#7c5cff"/><path d="M23 23 40 6M40 6v7M40 6h-7"/></svg>
+    <div>
+      <div class="t">중1 수학 1학기 완주</div>
+      <div class="s">2026.10.12 → 2027.1월 중후반 · 내 속도에 맞춰 분량을 조절해요.</div>
+    </div>
+    <div class="dd" id="dday"></div>
+  </div>
+</div>
+
+<script>
+// 나중에 구글 시트에서 읽어올 데이터 (지금은 예시)
+var LECTURE_URL = "#"; // 강의 링크는 추후 지정
+var GOAL_DATE = "2027-01-20"; // 1월 중후반 임시값
+var TODAY_TASKS = [
+  {id:"m1", subj:"수학 · 개념", what:"EBS 소인수분해 강의 1개", link:LECTURE_URL},
+  {id:"m2", subj:"수학 · 문제", what:"EBS 교재 소인수분해 p.12~14 (3쪽)"},
+  {id:"e1", subj:"영어 · 단어", what:"학원 단어 10개 복습"}
+];
+
+var DAYS = ["일","월","화","수","목","금","토"];
+var fmt = new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"long",day:"numeric",weekday:"long",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+function kst(){
+  var o={}; fmt.formatToParts(new Date()).forEach(function(p){o[p.type]=p.value});
+  return o;
+}
+function kstYMD(){
+  var p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul"}).format(new Date()).split("-");
+  return Date.UTC(+p[0],+p[1]-1,+p[2]);
+}
+function tick(){
+  var o=kst(), h=o.hour==="24"?"00":o.hour;
+  document.getElementById("date").textContent=o.year+"년 "+o.month+" "+o.day+" "+o.weekday;
+  document.getElementById("time").textContent=h+":"+o.minute+":"+o.second;
+  var g=Date.UTC(+GOAL_DATE.slice(0,4),+GOAL_DATE.slice(5,7)-1,+GOAL_DATE.slice(8,10));
+  var d=Math.round((g-kstYMD())/864e5);
+  document.getElementById("dday").innerHTML=(d>0?"D-"+d:d===0?"D-Day":"D+"+(-d))+"<small>1월 중후반 목표</small>";
+}
+tick(); setInterval(tick,1000);
+
+// 요일 띠
+var wk=["월:연산","화:진도","수:연산","목:진도","금:연산","토:과학","일:역사"];
+var todayIdx=(new Date(kstYMD()).getUTCDay()+6)%7;
+document.getElementById("week").innerHTML=wk.map(function(s,i){var a=s.split(":");return '<div class="'+(i===todayIdx?"today":"")+'">'+a[0]+'<br>'+a[1]+'</div>'}).join("");
+
+// 저장 (브라우저)
+function load(k,def){try{var v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return def}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var dayKey=new Date(kstYMD()).toISOString().slice(0,10);
+var state=load("chk-"+dayKey,{});
+
+// 체크리스트
+var box=document.getElementById("tasks");
+box.innerHTML=TODAY_TASKS.map(function(t){
+  return '<label class="item'+(state[t.id]?" done":"")+'" data-id="'+t.id+'"><input type="checkbox"'+(state[t.id]?" checked":"")+'><span class="sub">'+t.subj+'</span><span class="what">'+t.what+'</span>'+(t.link?'<a href="'+t.link+'" target="_blank" rel="noopener">▶ 강의 보기</a>':"")+'</label>';
+}).join("");
+box.addEventListener("change",function(e){
+  var it=e.target.closest(".item"); state[it.dataset.id]=e.target.checked;
+  it.classList.toggle("done",e.target.checked); save("chk-"+dayKey,state);
+});
+box.addEventListener("click",function(e){if(e.target.closest("a"))e.stopPropagation()});
+
+// 기분 선택
+var feel=document.getElementById("feel"), cur=load("feel-"+dayKey,"");
+function paint(){[].forEach.call(feel.querySelectorAll("button"),function(b){b.classList.toggle("on",b.dataset.v===cur)})}
+paint();
+feel.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;cur=b.dataset.v;save("feel-"+dayKey,cur);paint()});
+
+// 문제 사진 (미리보기만; 저장은 시트/드라이브 연결 후)
+document.getElementById("file").addEventListener("change",function(e){
+  [].forEach.call(e.target.files,function(f){var i=new Image();i.src=URL.createObjectURL(f);document.getElementById("thumbs").appendChild(i)});
+});
+
+// 탭
+[].forEach.call(document.querySelectorAll("nav button"),function(b){
+  b.addEventListener("click",function(){
+    [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});
+    ["today","plan","log"].forEach(function(id){document.getElementById(id).classList.toggle("hide",id!==b.dataset.tab)});
+  });
+});
+</script>
+</body>
+</html>
