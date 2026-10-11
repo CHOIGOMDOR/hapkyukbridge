@@ -45,7 +45,8 @@ function setupSheets() {
   importSheet_(ss, '문제', SRC_QUESTIONS, 20);
   EXTRA_SOURCES.forEach(function (x) { appendMore_(ss, x.tab, x.id); });
   ensure_(ss, '기록', LOG_COLS);
-  ensure_(ss, '모르는문제', ['ID', '날짜', '사진URL', '메모', '답변', '파일ID']);
+  var qt = ensure_(ss, '모르는문제', ['ID', '날짜', '사진URL', '질문', '답변(JSON)', '파일ID', '답변 보기']);
+  qt.getRange(1, 4).setValue('질문'); qt.getRange(1, 7).setValue('답변 보기').setFontWeight('bold');
   ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
   ensure_(ss, '반복체크', ['날짜', '항목']);
   ensure_(ss, '퀴즈기록', ['날짜', '종류', '키', '정답']);
@@ -168,16 +169,25 @@ function handle_(b) {
       appendText_('모르는문제', [id, b.date, url, b.memo || '', '[]', f.getId()]);
       return { ok: true, id: id, url: url };
     } else if (b.action === 'qaAnswer') {
-      var qs = sheet_('모르는문제'), qv = qs.getDataRange().getValues();
+      var qs = sheet_('모르는문제'), qv = qs.getDataRange().getValues(), entry = { who: b.who, text: b.text || '', at: b.at, img: '', fid: '' };
+      if (b.data) {
+        var af = DriveApp.getFolderById(settings_()['사진폴더ID']).createFile(Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_답변_' + b.name));
+        af.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        entry.img = 'https://drive.google.com/thumbnail?id=' + af.getId() + '&sz=w1200'; entry.fid = af.getId();
+      }
       for (var i = 1; i < qv.length; i++) if (String(qv[i][0]) === String(b.id)) {
         var arr = []; try { arr = JSON.parse(qv[i][4] || '[]'); } catch (e) {}
-        arr.push({ who: b.who, text: b.text, at: b.at });
-        qs.getRange(i + 1, 5).setValue(JSON.stringify(arr)); break;
+        arr.push(entry);
+        qs.getRange(i + 1, 5).setValue(JSON.stringify(arr));
+        qs.getRange(i + 1, 7).setValue(arr.map(function (x) { return '[' + x.who + ' ' + x.at + '] ' + (x.text || '') + (x.img ? ' (사진: ' + x.img + ')' : ''); }).join('\n'));
+        break;
       }
+      return { ok: true, img: entry.img };
     } else if (b.action === 'qaDelete') {
       var ds = sheet_('모르는문제'), dv = ds.getDataRange().getValues();
       for (var j = dv.length - 1; j >= 1; j--) if (String(dv[j][0]) === String(b.id)) {
         try { if (dv[j][5]) DriveApp.getFileById(String(dv[j][5])).setTrashed(true); } catch (e) {}
+        try { JSON.parse(dv[j][4] || '[]').forEach(function (x) { if (x.fid) { try { DriveApp.getFileById(x.fid).setTrashed(true); } catch (e2) {} } }); } catch (e) {}
         ds.deleteRow(j + 1);
       }
     } else if (b.action === 'minutes') {
