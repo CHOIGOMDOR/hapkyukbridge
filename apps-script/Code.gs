@@ -6,7 +6,7 @@
  *  2. 시트에서 확장 프로그램 > Apps Script 를 열어요.
  *  3. Code.gs 에 이 파일을 붙여넣고, 파일 추가(+) > HTML > 이름 "Index" 에 Index.html 내용을 붙여넣어요.
  *  4. 위쪽 함수 선택칸에서 setupSheets 를 고르고 ▶ 실행을 눌러요 (권한 허용).
- *     → 계획·단어장·기록·순공시간 등 필요한 탭이 알아서 만들어지고, 계획과 단어장이 채워져요.
+ *     → 계획·단어장·기록·순공시간 등 필요한 탭이 알아서 만들어지고, 계획·단어장·한국사 문제가 채워져요.
  *  5. 배포 > 새 배포 > 유형: 웹 앱 > 실행: 나 / 액세스: 모든 사용자 > 배포
  *     → 나오는 웹 앱 주소가 곧 페이지 주소예요. 카톡으로 보내면 열려요.
  *  코드를 고친 뒤에는 "배포 관리 > 수정 > 새 버전"으로 다시 배포해야 반영돼요.
@@ -22,6 +22,7 @@ var TZ = 'Asia/Seoul';
 // setupSheets 가 처음 채울 때 복사해 오는 원본 시트 (드라이브에 있는 파일 ID)
 var SRC_PLAN = '1bivWFZdjZ2QOfV4z6-5V62wHkecc--fYdoX5MqcmLdc';   // 2026 학습 계획 v3
 var SRC_VOCAB = '18gtRs_9dRpiAd1CkopYkyU2Mm8u2xOYS58DE7HSjW2k';  // 영어 단어장 전체 1~20
+var SRC_QUESTIONS = '1OqEnDsWCYLbsU69oH_62o8X_2x7NVnmh9SNpRGpg0bI'; // 한국사 복습 문제 1~2권
 var LOG_COLS = ['날짜', '기분', '개념1', '개념2', '개념3', '다음공부', '전사요약', '사진'];
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -35,11 +36,12 @@ function setupSheets() {
   var ss = ss_();
   importSheet_(ss, '계획', SRC_PLAN, 60);
   importSheet_(ss, '단어장', SRC_VOCAB, 100);
+  importSheet_(ss, '문제', SRC_QUESTIONS, 20);
   ensure_(ss, '기록', LOG_COLS);
   ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
   ensure_(ss, '반복체크', ['날짜', '항목']);
   ensure_(ss, '퀴즈기록', ['날짜', '종류', '키', '정답']);
-  ensure_(ss, '문제', ['과목', '키', '문제', '보기1', '보기2', '보기3', '보기4', '정답', '해설']);
+  ensure_(ss, '문제', ['과목', '키', '문제', '보기1', '보기2', '보기3', '보기4', '정답', '해설']); // 위에서 못 가져왔을 때만 빈 탭
   var rep = ensure_(ss, '반복항목', ['항목', '요일', '주횟수', '과목', '메모']);
   if (rep.getLastRow() < 2) {
     rep.appendRow(['큐티', '자유', 2, '큐티', '일요일 모임 준비 · 이번 주 2번']);
