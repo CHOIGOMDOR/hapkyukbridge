@@ -23,7 +23,12 @@ var TZ = 'Asia/Seoul';
 var SRC_PLAN = '1bivWFZdjZ2QOfV4z6-5V62wHkecc--fYdoX5MqcmLdc';   // 2026 학습 계획 v3
 var SRC_VOCAB = '18gtRs_9dRpiAd1CkopYkyU2Mm8u2xOYS58DE7HSjW2k';  // 영어 단어장 전체 1~20
 var SRC_QUESTIONS = '1OqEnDsWCYLbsU69oH_62o8X_2x7NVnmh9SNpRGpg0bI'; // 한국사 복습 문제 1~2권
-var SRC_QUESTIONS2 = '1kNgeNBm_Q7GU3HtAm7yg86vbjdOqVAV1p2RGUemwQYk'; // 한국사 복습 문제 3~6권
+// 새 자료가 생기면 아래 목록에 { tab: '넣을 탭', id: '재료 시트 ID' } 한 줄만 더하고 setupSheets 를 다시 실행해요.
+// (이미 들어 있는 줄은 건너뛰어서, 몇 번을 실행해도 중복되지 않아요)
+var EXTRA_SOURCES = [
+  { tab: '문제', id: '1kNgeNBm_Q7GU3HtAm7yg86vbjdOqVAV1p2RGUemwQYk' },  // 한국사 복습 문제 3~6권
+  { tab: '문제', id: '1Kio-FP1hnkjfQv5h5XCyGK3FyJTkFZAF9uGyBIalLuE' }   // 과학 복습 문제 6-2
+];
 var LOG_COLS = ['날짜', '기분', '개념1', '개념2', '개념3', '다음공부', '전사요약', '사진'];
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -38,7 +43,7 @@ function setupSheets() {
   importSheet_(ss, '계획', SRC_PLAN, 60);
   importSheet_(ss, '단어장', SRC_VOCAB, 100);
   importSheet_(ss, '문제', SRC_QUESTIONS, 20);
-  appendMore_(ss, '문제', SRC_QUESTIONS2, 100);
+  EXTRA_SOURCES.forEach(function (x) { appendMore_(ss, x.tab, x.id); });
   ensure_(ss, '기록', LOG_COLS);
   ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
   ensure_(ss, '반복체크', ['날짜', '항목']);
@@ -62,12 +67,16 @@ function ensure_(ss, name, header) {
   if (!s) { s = ss.insertSheet(name); s.appendRow(header); s.setFrozenRows(1); s.getRange(1, 1, 1, header.length).setFontWeight('bold'); }
   return s;
 }
-/** 같은 형식의 다른 시트를 아래에 이어 붙여요 (이미 minRows 이상이면 건너뛰어요) */
-function appendMore_(ss, name, srcId, minRows) {
+/** 같은 형식의 다른 시트를 탭 맨 아래에 이어 붙여요. 이미 있는 줄(키·문제가 같은 줄)은 건너뛰어요 */
+function appendMore_(ss, name, srcId) {
   var s = ss.getSheetByName(name);
-  if (!s || s.getLastRow() >= minRows) return;
-  var v = SpreadsheetApp.openById(srcId).getSheets()[0].getDataRange().getValues().slice(1);
-  if (v.length) s.getRange(s.getLastRow() + 1, 1, v.length, v[0].length).setValues(v);
+  if (!s) return;
+  var have = {};
+  s.getDataRange().getValues().slice(1).forEach(function (r) { have[r[1] + '|' + r[2]] = true; });
+  var add = SpreadsheetApp.openById(srcId).getSheets()[0].getDataRange().getValues().slice(1)
+    .filter(function (r) { return r[1] && !have[r[1] + '|' + r[2]]; });
+  if (add.length) s.getRange(s.getLastRow() + 1, 1, add.length, add[0].length).setValues(add);
+  Logger.log(name + ': ' + add.length + '줄 추가');
 }
 /** 이미 데이터가 충분히 있으면(minRows 이상) 덮어쓰지 않아요 → 다시 실행해도 체크 기록이 안 지워져요 */
 function importSheet_(ss, name, srcId, minRows) {
