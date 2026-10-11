@@ -369,6 +369,21 @@ nav button{white-space:nowrap;word-break:keep-all}
 .task .what{word-break:keep-all;overflow-wrap:break-word;line-height:1.45}
 .task .what b,.nxr{white-space:nowrap}
 .qaitem .qh span,.qans .a,.concept span,#next{word-break:keep-all;overflow-wrap:break-word}
+
+/* ===== 탭: 색깔 + 배경 도형, 즉시 반응 ===== */
+nav button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden;isolation:isolate;border:2.5px solid var(--tb);background:var(--tc);color:#111;font-size:18px;padding:9px 14px;transition:none}
+nav button::before{content:"";position:absolute;z-index:-1;width:34px;height:34px;border-radius:50%;background:var(--td);opacity:.55;right:-10px;top:-12px}
+nav button::after{content:"";position:absolute;z-index:-1;width:18px;height:18px;background:var(--td);opacity:.4;left:-6px;bottom:-7px;transform:rotate(45deg);border-radius:4px}
+nav button[data-tab=today]{--tc:#e3f6c8;--td:#9bd35a;--tb:#b8e08a}
+nav button[data-tab=plan]{--tc:#dcecff;--td:#7fb2f5;--tb:#a9cdf8}
+nav button[data-tab=qa]{--tc:#ffe1ec;--td:#f58db0;--tb:#f6b6ce}
+nav button[data-tab=log]{--tc:#fff1c4;--td:#f5c542;--tb:#f4d982}
+nav button[data-tab=plan]::before{border-radius:8px;transform:rotate(20deg)}
+nav button[data-tab=qa]::after{border-radius:50%}
+nav button[data-tab=log]::before{border-radius:50% 50% 0 50%}
+nav button.on{background:var(--tc);box-shadow:0 3px 0 var(--td);border-color:var(--td);font-weight:700;transform:translateY(-1px)}
+nav button.on::before{opacity:.9}
+@media(max-width:700px){nav button{padding:8px 2px;font-size:15px}}
 </style>
 </head>
 <body>
@@ -613,7 +628,7 @@ function tick(){
   $("date").textContent=o.year+"년 "+o.month+" "+o.day+" "+o.weekday;
   $("time").textContent=h+":"+o.minute+":"+o.second;
   var d=Math.round((utc(GOAL.end)-utc(todayStr()))/864e5);
-  $("dday").innerHTML=(d>0?"D-"+d:d===0?"D-Day":"D+"+(-d))+"<small>1월 중후반 목표</small>";
+  var dd=(d>0?"D-"+d:d===0?"D-Day":"D+"+(-d));if($("dday").dataset.v!==dd){$("dday").dataset.v=dd;$("dday").innerHTML=dd+"<small>1월 중후반 목표</small>"}
 }
 
 /* ============ 오늘 할 일 계산 ============ */
@@ -992,11 +1007,15 @@ $("minAdd").addEventListener("click",function(){
 });
 $("minUndo").addEventListener("click",undoMinutes);
 [].forEach.call(document.querySelectorAll(".quick button[data-m]"),function(b){b.addEventListener("click",function(){addMinutes(+b.dataset.m)})});
+function showTab(b){
+  if(b.classList.contains("on"))return;
+  [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});
+  ["today","plan","qa","log"].forEach(function(id){$(id).classList.toggle("hide",id!==b.dataset.tab)});
+  window.scrollTo(0,0);
+}
 [].forEach.call(document.querySelectorAll("nav button"),function(b){
-  b.addEventListener("click",function(){
-    [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});
-    ["today","plan","qa","log"].forEach(function(id){$(id).classList.toggle("hide",id!==b.dataset.tab)});
-  });
+  b.addEventListener("pointerdown",function(){showTab(b)});   // 클릭 대기(딜레이) 없이 바로 바꿔요
+  b.addEventListener("click",function(){showTab(b)});          // 키보드 등 대비
 });
 
 /* ============ 폰트 (앱 스크립트: 드라이브 파일 → 적용) ============ */
