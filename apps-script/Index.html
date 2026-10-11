@@ -297,6 +297,43 @@ html img.slot[data-kind="sway"]{animation:swayy 3s ease-in-out infinite}
 html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
 .spark{animation:twinkle 2.2s ease-in-out infinite}
 .spark+.spark{animation-delay:-1.1s}
+
+/* ===== 순공시간 · 퀴즈 ===== */
+.timebig{font-size:48px;color:#111;text-align:center;padding:6px 0 10px;background:linear-gradient(135deg,var(--tint),var(--soft));border-radius:18px;margin-bottom:12px}
+.timerow{display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap}
+.timerow input{width:74px;font:inherit;font-size:24px;text-align:center;padding:8px 6px;border:2.5px solid var(--pri);border-radius:14px;background:#fff;color:#111}
+.timerow span{font-size:18px;color:#111}
+.timerow button,.quick button,.qgo{font:inherit;font-size:18px;color:#111;background:linear-gradient(135deg,var(--pri),var(--pri2));border:2.5px solid var(--deep);border-radius:14px;padding:9px 18px;cursor:pointer}
+.quick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.quick button{font-size:16px;padding:7px 14px;background:#fff;border-color:var(--pri)}
+.quick button.ghost,.qgo.ghost{background:var(--soft);border-color:var(--line)}
+.mini.mt{margin-top:12px}
+.qbtn{flex:none;font:inherit;font-size:15px;color:#111;background:linear-gradient(135deg,var(--pri),var(--pri2));border:2px solid var(--deep);border-radius:12px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.modal{position:fixed;inset:0;background:rgba(30,20,60,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal[hidden]{display:none}
+.mbox{width:100%;max-width:520px;max-height:92vh;overflow:auto;background:#fff;border:3px solid var(--pri);border-radius:26px;padding:18px 18px 20px;box-shadow:0 14px 40px rgba(0,0,0,.25)}
+.qhead{display:flex;align-items:center;gap:10px;font-size:19px;color:#111;margin-bottom:12px}
+.qhead span{flex:1}.qhead b{background:var(--tint);border-radius:12px;padding:2px 12px}
+.qx{font:inherit;border:0;background:var(--soft);border-radius:50%;width:36px;height:36px;font-size:17px;cursor:pointer;color:#111}
+.qprompt{font-size:32px;color:#111;text-align:center;background:linear-gradient(135deg,var(--tint),var(--soft));border-radius:20px;padding:18px 10px;margin-bottom:14px;line-height:1.3;word-break:keep-all}
+.qprompt small{display:block;font-size:16px;color:#333;margin-top:6px}
+.qchoices{display:grid;gap:10px}
+.qc{font:inherit;font-size:21px;color:#111;text-align:left;background:#fff;border:2.5px solid var(--pri);border-radius:16px;padding:12px 14px;cursor:pointer}
+.qc:hover:not(:disabled){background:var(--soft)}
+.qc.right{background:#d9f5e6;border-color:#2fa86b}
+.qc.wrong{background:#ffe0e0;border-color:#e0524e}
+.qspell{display:flex;gap:8px}
+.qspell input{flex:1;min-width:0;font:inherit;font-size:24px;padding:10px 12px;border:2.5px solid var(--pri);border-radius:14px;color:#111}
+.qfb{margin-top:12px}
+.okmsg,.nomsg{font-size:22px;color:#111;padding:8px 12px;border-radius:14px}
+.okmsg{background:#d9f5e6}.nomsg{background:#ffe9e0}
+.qexp{margin:8px 2px;font-size:16px;color:#333}
+.qfb .qgo{width:100%;margin-top:8px}
+.qscore{font-size:60px;text-align:center;color:#111;padding:6px 0}
+.qscore small{display:block;font-size:19px;color:#333}
+.qwrong{background:var(--soft);border-radius:16px;padding:10px 14px;margin:10px 0;font-size:17px;color:#111;line-height:1.7}
+.qbtns{display:flex;gap:10px}.qbtns .qgo{flex:1}
+@media(max-width:480px){.timebig{font-size:40px}.qprompt{font-size:26px}.qc{font-size:19px}}
 </style>
 </head>
 <body>
@@ -353,6 +390,13 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
           <div class="next-row" id="next"></div>
         </div>
         <div class="card">
+          <h3>⏱ 순공시간 <span class="chip">타이머로 잰 시간을 적어요</span></h3>
+          <div class="timebig" id="minToday">0분</div>
+          <div class="timerow"><input id="minH" type="number" inputmode="numeric" min="0" max="12" placeholder="0"><span>시간</span><input id="minM" type="number" inputmode="numeric" min="0" max="59" placeholder="0"><span>분</span><button type="button" id="minAdd">추가</button></div>
+          <div class="quick"><button type="button" data-m="10">+10분</button><button type="button" data-m="30">+30분</button><button type="button" data-m="60">+1시간</button><button type="button" id="minUndo" class="ghost">↩ 마지막 취소</button></div>
+          <div class="mini mt"><div><b id="minWeek">0분</b>이번 주</div><div><b id="minMonth">0분</b>이번 달</div></div>
+        </div>
+        <div class="card">
           <h3>🌟 나의 기록</h3>
           <div class="mini">
             <div><b id="stStreak">0</b>연속 공부일</div>
@@ -390,6 +434,7 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
     <div class="dd" id="dday"></div>
   </div>
 </div>
+<div class="modal" id="quizModal" hidden><div class="mbox" id="quizBox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -449,34 +494,39 @@ function assignImages(){
 document.addEventListener("click",function(e){var el=e.target.closest&&e.target.closest("img.slot");if(!el)return;el.dataset.off=(+(el.dataset.off||0)+1);assignImages()});
 
 /* ============ 데이터 ============ */
-var DB = {plan:[],log:[]};
+var DB = {plan:[],log:[],vocab:[],repeats:[],rchecks:[],minutes:[],qlog:[],questions:[],mood:{}};
+var KINDS=["학원","수학","학원","수학","학원","쉬는 날","한국사"];
+var POS_LABEL={"n.":"명사","v.":"동사","adj.":"형용사","adv.":"부사","prep.":"전치사","phr.":"구(숙어)","phr. v.":"구동사","pron.":"대명사"};
 
 function samplePlan(){
   var mon=addDays(TODAY,-wIdx(TODAY)), rows=[], id=0;
-  function add(d,subj,unit,task,range,link){rows.push({id:"s"+(id++),date:addDays(mon,d),subject:subj,unit:unit,task:task,range:range,link:link||"",done:false})}
-  [0,2,4].forEach(function(d){
-    add(d,"수학 · 연산","소인수분해","연산 학습지","2장");
-    add(d,"영어 · 단어","","학원 단어 복습","10개");
-  });
+  function add(d,subj,unit,task,range){rows.push({id:"s"+(id++),date:addDays(mon,d),subject:subj,unit:unit,task:task,range:range||"",link:"",done:false})}
+  var AC=["5:10~8:00","","5:20~9:00","","5:10~8:00"];
+  [0,2,4].forEach(function(d){add(d,"영어 학원","Pine English School","영어 학원 ("+AC[d]+")");add(d,"수학 · 연산","소인수분해","연산 학습지","30분")});
+  add(0,"영어 · 단어","유닛 7·8","단어 시험 (학원)","시험");
   [1,3].forEach(function(d){
-    if(d===1){
-      add(d,"수학 · 개념","소인수분해","EBS 강의","1개",LECTURE_URL);
-      add(d,"수학 · 문제","소인수분해","EBS 교재","p.12~14 (3쪽)");
-    }else{
-      add(d,"수학 · 개념","소인수분해","개념원리","p.20~23");
-      add(d,"수학 · 문제","소인수분해","쎈","p.14~17");
-    }
+    add(d,"수학 · 개념","소인수분해",d===1?"숨마쿰 EBS 강의 + 개념 읽기":"개념원리",d===1?"p.25~34":"p.20~29");
+    add(d,"수학 · 문제","소인수분해",d===1?"숨마쿰 유형 EXERCISES":"쎈",d===1?"해당 쪽 문제":"p.15~21");
+    add(d,"영어 · 문법","Grammar Inside STARTER · Ch01 명사와 관사","Unit 0"+(d===1?2:3)+" "+(d===1?"셀 수 없는 명사":"관사"),d===1?"교재 p.12~13 + 워크북 p.6~7":"교재 p.14~15 + 워크북 p.8~9");
   });
-  add(5,"과학","","교재 정하면 입력","");
-  add(6,"역사","","교재 정하면 입력","");
+  add(3,"과학","초등 과학 6-2","1 계절의 변화: 남중 고도와 낮의 길이");
+  [1,2,3,4,5,6].forEach(function(d){add(d,"영어 · 단어","유닛 9·10 (다음 월 시험)","단어 퀴즈 3문제","3문제")});
+  add(6,"역사","한국사 1권 선사~고대","01 선사 시대, 돌을 사용하던 사람들","p.16");
+  add(6,"역사","한국사 1권 선사~고대","02 단군 할아버지가 세운 국가, 고조선","p.24");
   return rows;
 }
-function sampleLog(){
-  return [{date:addDays(TODAY,-1),mood:"hard",c1:"소수는 약수가 2개인 자연수예요.",c2:"소인수분해는 소수들의 곱으로 나타내는 거예요.",c3:"작은 소수부터 차례로 나누어 보세요.",next:"개념원리 p.20~23, 쎈 p.14~17",summary:"(예시) 12를 2×2×3으로 나누는 과정에서 헷갈렸다고 말했어요.",photos:[]}];
+function sampleVocab(){
+  return [[9,"Asian New Year Feasts","to welcome","v.","맞이하다,환영하다","O",""],[9,"Asian New Year Feasts","surplus","n.","과잉,잉여","O",""],[9,"Asian New Year Feasts","ancient","adj.","옛날의,고대의","O",""],[9,"Asian New Year Feasts","an ingredient","n.","재료","O",""],[9,"Asian New Year Feasts","abundance","n.","풍부,충만","O",""],[9,"Asian New Year Feasts","culture","n.","문화","O",""],[9,"Asian New Year Feasts","sticky","adj.","끈적끈적한","O",""],[9,"Asian New Year Feasts","truly","adv.","정말로","O",""],[9,"Asian New Year Feasts","to symbolize","v.","상징하다","X",""],[10,"Food Preservation","innovative","adj.","혁신적인","O",""],[10,"Food Preservation","a benefit","n.","혜택,이득","O",""],[10,"Food Preservation","a method","n.","방법","O",""],[10,"Food Preservation","vinegar","n.","식초","O",""],[10,"Food Preservation","liquid","n.","액체","O",""],[10,"Food Preservation","harmful","adj.","해로운","O","빨간★"],[10,"Food Preservation","to prove","v.","입증하다,증명하다","O",""],[10,"Food Preservation","to store","v.","저장하다,보관하다","X",""]];
 }
+function sampleLog(){
+  return [{date:addDays(TODAY,-1),mood:"hard",c1:"소수는 약수가 2개인 자연수예요.",c2:"소인수분해는 소수들의 곱으로 나타내는 거예요.",c3:"작은 소수부터 차례로 나누어 보세요.",next:"개념원리 p.20~29, 쎈 p.15~21",summary:"(예시) 12를 2×2×3으로 나누는 과정에서 헷갈렸다고 말했어요.",photos:[]}];
+}
+function toVocab(a){return {u:+a[0],title:a[1],en:String(a[2]||""),pos:a[3]||"",ko:a[4]||"",spell:/^O/.test(a[5]||""),mark:a[6]||""}}
 function applyData(j){
   DB.plan=j.plan||[]; DB.log=j.log||[]; DB.mood={};
   DB.log.forEach(function(l){if(l.mood)DB.mood[l.date]=l.mood});
+  DB.vocab=(j.vocab||[]).map(toVocab);
+  DB.repeats=j.repeats||[]; DB.rchecks=j.rchecks||[]; DB.minutes=j.minutes||[]; DB.qlog=j.qlog||[]; DB.questions=j.questions||[];
   if(j.images&&j.images.length)IMAGES=IMAGES.concat(j.images);
   if(j.goal){for(var k in j.goal){if(j.goal[k])GOAL[k]=j.goal[k]}}
 }
@@ -485,12 +535,13 @@ function loadData(){
     return new Promise(function(ok,no){google.script.run.withSuccessHandler(function(j){applyData(j);ok()}).withFailureHandler(no).apiGet()});
   }
   if(!LIVE){
-    DB.plan=samplePlan(); DB.log=sampleLog();
+    DB.plan=samplePlan(); DB.log=sampleLog(); DB.vocab=sampleVocab().map(toVocab);
     var saved=lget("local-done",{});
     DB.plan.forEach(function(r){if(saved[r.id])r.done=true});
-    var lm=lget("local-mood",{});
-    DB.log.forEach(function(l){});
-    DB.mood=lm;
+    DB.mood=lget("local-mood",{});
+    DB.repeats=[{name:"큐티",day:"자유",times:2,subject:"큐티",memo:"일요일 모임 준비"},{name:"주제 글쓰기",day:"금",times:1,subject:"학교 숙제",memo:"학교 글쓰기 숙제"}];
+    DB.rchecks=lget("local-rchecks",[]); DB.minutes=lget("local-min",[]); DB.qlog=lget("local-qlog",[]);
+    DB.questions=[{subject:"역사",key:"01 선사 시대, 돌을 사용하던 사람들",q:"돌을 깨뜨려 만든 도구를 쓰던 시대는?",opts:["구석기 시대","청동기 시대","철기 시대","삼국 시대"],ans:1,exp:"뗀석기를 쓰던 구석기 시대예요."}];
     return Promise.resolve();
   }
   return fetch(API_URL+"?action=all").then(function(r){return r.json()}).then(applyData);
@@ -502,6 +553,7 @@ function send(body){
   if(!LIVE)return Promise.resolve();
   return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)}).then(function(r){return r.json()}).catch(function(){toast("저장이 안 됐어요. 다시 시도해 줘요")});
 }
+function persistLocal(){lset("local-rchecks",DB.rchecks);lset("local-min",DB.minutes);lset("local-qlog",DB.qlog)}
 
 /* ============ 시계 / D-day ============ */
 function tick(){
@@ -512,10 +564,61 @@ function tick(){
   $("dday").innerHTML=(d>0?"D-"+d:d===0?"D-Day":"D+"+(-d))+"<small>1월 중후반 목표</small>";
 }
 
-/* ============ 렌더 ============ */
+/* ============ 오늘 할 일 계산 ============ */
 function tasksOf(date){return DB.plan.filter(function(r){return r.date===date})}
-function allDone(date){var t=tasksOf(date);return t.length>0&&t.every(function(r){return r.done})}
+function weekStart(d){return addDays(d,-wIdx(d))}
+function repeatItems(date){
+  var out=[], wi=wIdx(date), mon=weekStart(date), sun=addDays(mon,6);
+  DB.repeats.forEach(function(r){
+    var times=+r.times||1;
+    var doneOn=DB.rchecks.some(function(c){return c.name===r.name&&c.date===date});
+    if(r.day==="자유"){
+      if(wi===6)return;                                  // 일요일은 쉬어요
+      var cnt=DB.rchecks.filter(function(c){return c.name===r.name&&c.date>=mon&&c.date<=sun}).length;
+      if(cnt>=times&&!doneOn)return;                     // 이번 주 목표를 채우면 사라져요
+      out.push({id:"rep:"+r.name,rep:true,flex:true,subject:r.subject||"반복",task:r.name,range:"이번 주 "+cnt+"/"+times,unit:r.memo||"",done:doneOn});
+    }else if(r.day===DAYN[wi]){
+      out.push({id:"rep:"+r.name,rep:true,subject:r.subject||"반복",task:r.name,range:"",unit:r.memo||"",done:doneOn});
+    }
+  });
+  return out;
+}
+function dayItems(date){
+  var t=tasksOf(date).slice();
+  repeatItems(date).forEach(function(x){if(!x.flex||date===TODAY)t.push(x)});
+  return t;
+}
+function allDone(date){var t=dayItems(date);return t.length>0&&t.every(function(x){return x.done})}
+function findPlan(id){return DB.plan.filter(function(x){return String(x.id)===String(id)})[0]}
+function setDone(r,on){
+  r.done=on;
+  if(!LIVE){var s=lget("local-done",{});s[r.id]=on;lset("local-done",s)}
+  else send({action:"check",row:r.id,done:on});
+}
+function setRepeat(name,date,on){
+  DB.rchecks=DB.rchecks.filter(function(c){return !(c.name===name&&c.date===date)});
+  if(on)DB.rchecks.push({date:date,name:name});
+  if(!LIVE)persistLocal(); else send({action:"rcheck",date:date,name:name,on:on});
+}
 
+/* ============ 순공시간 ============ */
+function minsOn(d){return DB.minutes.filter(function(m){return m.date===d}).reduce(function(a,m){return a+(+m.min||0)},0)}
+function minsBetween(a,b){return DB.minutes.filter(function(m){return m.date>=a&&m.date<=b}).reduce(function(s,m){return s+(+m.min||0)},0)}
+function fmtMin(n){var h=Math.floor(n/60),m=n%60;return h?(h+"시간"+(m?" "+m+"분":"")):(m+"분")}
+function addMinutes(min){
+  min=Math.round(+min);if(!(min>0)){toast("시간을 입력해 줘요");return}
+  DB.minutes.push({date:TODAY,min:min});
+  if(!LIVE)persistLocal(); else send({action:"minutes",date:TODAY,min:min});
+  renderToday();toast("순공 "+fmtMin(min)+" 기록했어요 ⏱");
+}
+function undoMinutes(){
+  for(var i=DB.minutes.length-1;i>=0;i--){if(DB.minutes[i].date===TODAY){var m=DB.minutes.splice(i,1)[0];
+    if(!LIVE)persistLocal(); else send({action:"minutesUndo",date:TODAY});
+    renderToday();toast(fmtMin(m.min)+" 취소했어요");return}}
+  toast("오늘 취소할 기록이 없어요");
+}
+
+/* ============ 렌더 ============ */
 function applyTheme(){
   var t=THEMES[wIdx(TODAY)],s=document.documentElement.style;
   s.setProperty("--pri",t.pri);s.setProperty("--pri2",t.pri2);s.setProperty("--soft",t.soft);s.setProperty("--tint",t.tint);s.setProperty("--deep",t.deep);
@@ -523,64 +626,80 @@ function applyTheme(){
 function heroText(tasks){
   var concept=tasks.filter(function(r){return /개념/.test(r.subject)&&r.unit})[0];
   if(concept)return "오늘은 <em>"+esc(concept.unit)+"</em>"+josa(concept.unit,"을","를")+" 배워요";
+  var hist=tasks.filter(function(r){return /^역사$/.test(r.subject)})[0];
+  if(hist)return "오늘은 <em>한국사</em> 여행 가는 날!";
+  if(tasks.length&&tasks.every(function(r){return /단어/.test(r.subject)}))return "오늘은 <em>단어 3개</em>만 하고 푹 쉬어요 ☁️";
   var unit=tasks.filter(function(r){return /연산/.test(r.subject)})[0];
   if(unit)return "오늘은 <em>연산</em> 연습하는 날!";
-  var other=tasks.filter(function(r){return /과학|역사|사회/.test(r.subject)})[0];
-  if(other){var n=other.subject.split(" ")[0];return "오늘은 <em>"+esc(n)+"</em>"+josa(n,"을","를")+" 공부해요"}
+  var other=tasks.filter(function(r){return /과학/.test(r.subject)})[0];
+  if(other)return "오늘은 <em>과학</em>도 공부해요";
   return "오늘도 <em>천천히</em> 하나씩!";
 }
+function reviewQs(x){
+  if(x.rep||/연산|문제|학원|단어/.test(x.subject))return [];
+  var key=String(x.task||"").replace(/^복습:\s*/,"");
+  return DB.questions.filter(function(q){return q.key===key||q.key===x.unit});
+}
+function quizKind(x){
+  if(x.rep)return "";
+  if(x.task==="단어 퀴즈 3문제")return "word";
+  return reviewQs(x).length?"review":"";
+}
 function renderToday(){
-  var o=parts(), tasks=tasksOf(TODAY);
+  var tasks=tasksOf(TODAY), items=dayItems(TODAY);
   $("heroDate").textContent=+TODAY.slice(5,7)+"월 "+ +TODAY.slice(8,10)+"일 "+DAYN[wIdx(TODAY)]+"요일";
   $("heroTitle").innerHTML=heroText(tasks);
   $("planChip").textContent=LIVE?"":"예시 분량";
 
-  // 요일 띠
-  var mon=addDays(TODAY,-wIdx(TODAY)),w="";
-  var kinds=["연산","진도","연산","진도","연산","과학","역사"];
-  for(var i=0;i<7;i++){var ds=addDays(mon,i);w+='<div class="'+(ds===TODAY?"today":"")+(allDone(ds)?" done":"")+'">'+DAYN[i]+'<small>'+kinds[i]+'</small></div>'}
+  var mon=weekStart(TODAY),w="";
+  for(var i=0;i<7;i++){var ds=addDays(mon,i);w+='<div class="'+(ds===TODAY?"today":"")+(allDone(ds)?" done":"")+'">'+DAYN[i]+'<small>'+KINDS[i]+'</small></div>'}
   $("week").innerHTML=w;
 
-  // 체크리스트
   var h="";
-  tasks.forEach(function(r){
+  items.forEach(function(r){
+    var qk=quizKind(r), btn=qk?'<button type="button" class="qbtn" data-q="'+qk+'">'+(qk==="word"?"🎯 퀴즈 3문제":"🧠 복습 퀴즈")+'</button>':"";
     var link=/개념/.test(r.subject)?'<a '+(r.link?'href="'+esc(r.link)+'" target="_blank" rel="noopener"':'class="off"')+'>▶ 강의 보기</a>':"";
-    h+='<label class="task'+(r.done?" done":"")+'" data-id="'+esc(r.id)+'"><input type="checkbox"'+(r.done?" checked":"")+'><span class="subj">'+esc(r.subject)+'</span><span class="what">'+esc(r.task)+(r.range?' · <b>'+esc(r.range)+'</b>':"")+(r.unit?'<small>'+esc(r.unit)+'</small>':"")+'</span>'+link+'</label>';
+    h+='<label class="task'+(r.done?" done":"")+'" data-id="'+esc(r.id)+'"><input type="checkbox"'+(r.done?" checked":"")+'><span class="subj">'+esc(r.subject)+'</span><span class="what">'+esc(r.task)+(r.range?' · <b>'+esc(r.range)+'</b>':"")+(r.unit?'<small>'+esc(r.unit)+'</small>':"")+'</span>'+btn+link+'</label>';
   });
   $("tasks").innerHTML=h||'<div class="empty">오늘은 계획이 없어요. 푹 쉬어요 ☁️</div>';
+  var doneN=items.filter(function(x){return x.done}).length;
+  $("planChip").textContent=(LIVE?"":"예시 · ")+doneN+"/"+items.length+" 완료";
   $("praise").classList.toggle("on",allDone(TODAY));
 
-  // 기분
   var m=(DB.mood||{})[TODAY];
   [].forEach.call($("feel").querySelectorAll("button"),function(b){b.classList.toggle("on",b.dataset.v===m)});
 
-  // 개념 세 문장
   var lg=DB.log.filter(function(l){return l.date===TODAY})[0]||DB.log.filter(function(l){return l.c1}).slice(-1)[0];
   var cs=lg?[lg.c1,lg.c2,lg.c3].filter(Boolean):[];
   $("conceptChip").textContent=lg?(lg.date===TODAY?"오늘":lg.date.slice(5).replace("-","/")+" 기록"):"";
   $("concepts").innerHTML=cs.length?cs.map(function(c,i){return '<div class="concept"><i>'+(i+1)+'</i><span>'+esc(c)+'</span></div>'}).join(""):'<div class="empty">공부 녹음을 올리면 여기에 세 문장으로 정리돼요 ✨</div>';
 
-  // 다음 공부
   var nx="";
   if(lg&&lg.next){nx=esc(lg.next)}
   else{
-    for(var k=1;k<=7;k++){var d2=addDays(TODAY,k),t=tasksOf(d2).filter(function(r){return /개념|문제/.test(r.subject)});
-      if(t.length){nx='<small>'+DAYN[wIdx(d2)]+'요일</small>'+t.map(function(r){return esc(r.task+(r.range?" "+r.range:""))}).join("<br>");break}}
+    for(var k=1;k<=7;k++){var d2=addDays(TODAY,k),t=tasksOf(d2).filter(function(r){return /개념|문제|문법|역사|과학/.test(r.subject)});
+      if(t.length){nx='<small>'+DAYN[wIdx(d2)]+'요일</small>'+t.slice(0,3).map(function(r){return esc(r.task+(r.range?" "+r.range:""))}).join("<br>");break}}
   }
   $("next").innerHTML=nx||'<div class="empty">계획을 추가해 주세요</div>';
 
+  // 순공시간
+  var mo=TODAY.slice(0,7);
+  $("minToday").textContent=fmtMin(minsOn(TODAY));
+  $("minWeek").textContent=fmtMin(minsBetween(mon,addDays(mon,6)));
+  $("minMonth").textContent=fmtMin(minsBetween(mo+"-01",mo+"-31"));
+
   // 통계
   var dates={};DB.plan.forEach(function(r){dates[r.date]=1});
-  var days=Object.keys(dates).sort(),doneCount=DB.plan.filter(function(r){return r.done}).length;
+  var doneCount=DB.plan.filter(function(r){return r.done}).length+DB.rchecks.length;
   var streak=0,cur=allDone(TODAY)?TODAY:addDays(TODAY,-1);
   while(dates[cur]&&allDone(cur)){streak++;cur=addDays(cur,-1)}
   var wk=0;for(var j=0;j<7;j++){if(allDone(addDays(mon,j)))wk++}
   $("stStreak").textContent=streak;$("stDone").textContent=doneCount;$("stWeek").textContent=wk+"/7";
 }
 function renderPlan(){
-  var mon=addDays(TODAY,-wIdx(TODAY)),h='<table><tr><th>요일</th><th>과목</th><th>분량</th></tr>';
+  var mon=weekStart(TODAY),h='<table><tr><th>요일</th><th>과목</th><th>분량</th></tr>';
   for(var i=0;i<7;i++){
-    var ds=addDays(mon,i),t=tasksOf(ds);
+    var ds=addDays(mon,i),t=dayItems(ds);
     if(!t.length){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+DAYN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small></td><td colspan="2" style="color:var(--sub)">쉬는 날</td></tr>';continue}
     t.forEach(function(r,k){h+='<tr class="'+(ds===TODAY?"cur":"")+'"><td>'+(k?"":DAYN[i]+' <small>'+ds.slice(5).replace("-","/")+'</small>')+'</td><td>'+esc(r.subject)+'</td><td>'+(r.done?"✅ ":"")+esc(r.task+(r.range?" · "+r.range:""))+'</td></tr>'});
   }
@@ -589,8 +708,10 @@ function renderPlan(){
 function renderLog(){
   var L=DB.log.slice().sort(function(a,b){return a.date<b.date?1:-1});
   var mood={easy:"🙂 쉬웠어요",ok:"😐 괜찮았어요",hard:"😟 어려웠어요"};
-  if(!L.length){$("logList").innerHTML='<div class="empty">아직 기록이 없어요. 오늘부터 시작해요!</div>';return}
-  $("logList").innerHTML=L.map(function(l){
+  var tot=DB.minutes.reduce(function(a,m){return a+(+m.min||0)},0);
+  var head='<div class="entry"><div class="h">⏱ 지금까지 순공시간 <span class="chip">'+fmtMin(tot)+'</span></div><p>퀴즈 '+DB.qlog.length+'문제 · 완료한 공부 '+(DB.plan.filter(function(r){return r.done}).length+DB.rchecks.length)+'개</p></div>';
+  if(!L.length){$("logList").innerHTML=head+'<div class="empty">아직 기록이 없어요. 오늘부터 시작해요!</div>';return}
+  $("logList").innerHTML=head+L.map(function(l){
     var ph=(l.photos||[]).map(function(u){return '<img src="'+esc(u)+'" style="width:70px;height:70px;object-fit:cover;border-radius:10px;margin:4px 4px 0 0">'}).join("");
     return '<div class="entry"><div class="h">'+l.date.slice(5).replace("-","/")+' ('+DAYN[wIdx(l.date)]+') <span class="chip">'+(mood[l.mood]||"")+'</span></div>'+
       [l.c1,l.c2,l.c3].filter(Boolean).map(function(c,i){return '<p>'+(i+1)+'. '+esc(c)+'</p>'}).join("")+
@@ -599,14 +720,122 @@ function renderLog(){
 }
 function renderAll(){applyTheme();renderToday();renderPlan();renderLog();$("goalTitle").textContent=GOAL.title;$("goalSub").textContent=GOAL.sub;tick()}
 
+/* ============ 퀴즈 ============ */
+var QZ=null;
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+function normEn(s){return String(s).toLowerCase().replace(/[.,!?]/g,"").replace(/^(to|a|an|the)\s+/,"").replace(/\s+/g," ").trim()}
+function unitsOf(x){var m=String(x.unit||"").match(/유닛\s*(\d+)\s*[·,~\-]\s*(\d+)/);return m?[+m[1],+m[2]]:[]}
+function usable(v){return v.en&&!/^\(/.test(v.en)}
+function pickWords(pool,n){
+  var wrong={},okToday={};
+  DB.qlog.forEach(function(q){if(q.kind!=="word")return;if(!q.ok)wrong[q.key]=(wrong[q.key]||0)+1;else if(q.date===TODAY)okToday[q.key]=1});
+  var items=pool.map(function(v){var w=1+(v.mark?2:0)+(wrong[v.en]||0)*2;if(okToday[v.en])w*=0.2;return {v:v,w:w}}),out=[];
+  while(out.length<n&&items.length){
+    var tot=items.reduce(function(a,x){return a+x.w},0),r=Math.random()*tot,i=0;
+    for(;i<items.length;i++){r-=items[i].w;if(r<=0)break}
+    if(i>=items.length)i=items.length-1;
+    out.push(items.splice(i,1)[0].v);
+  }
+  return out;
+}
+function distractors(v,field,n){
+  var all=DB.vocab.filter(function(x){return usable(x)&&x.en!==v.en&&x[field]&&x[field]!==v[field]});
+  var same=shuffle(all.filter(function(x){return x.pos===v.pos})),rest=shuffle(all.filter(function(x){return x.pos!==v.pos}));
+  var out=[],seen={};seen[v[field]]=1;
+  same.concat(rest).forEach(function(x){if(out.length<n&&!seen[x[field]]){seen[x[field]]=1;out.push(x[field])}});
+  return out;
+}
+function wordQuestion(v,type){
+  var base={kind:"word",key:v.en,type:type,exp:v.en+" = "+v.ko+" ("+v.pos+")"};
+  if(type==="spell"){base.prompt=v.ko;base.sub=v.pos+" "+(POS_LABEL[v.pos]||"")+" · 영어로 써요";base.answer=v.en;return base}
+  if(type==="pos"){
+    var ps=["n.","v.","adj.","adv.","prep.","phr.","phr. v."].filter(function(p){return p!==v.pos});
+    var ch=shuffle([v.pos].concat(shuffle(ps).slice(0,3)));
+    base.prompt=v.en;base.sub="품사는 무엇일까요?";base.choices=ch.map(function(p){return p+" "+(POS_LABEL[p]||"")});base.ans=ch.indexOf(v.pos);return base;
+  }
+  var d=distractors(v,"ko",3),cs=shuffle([v.ko].concat(d));
+  base.prompt=v.en;base.sub=v.pos+" "+(POS_LABEL[v.pos]||"")+" · 뜻은 무엇일까요?";base.choices=cs;base.ans=cs.indexOf(v.ko);return base;
+}
+function buildWordSet(x){
+  var us=unitsOf(x),pool=DB.vocab.filter(function(v){return usable(v)&&us.indexOf(v.u)>=0});
+  var ws=pickWords(pool,3),types=["mean","spell","pos"];
+  return ws.map(function(v,i){var t=types[i%3];if(t==="spell"&&!v.spell)t="mean";return wordQuestion(v,t)});
+}
+function buildReviewSet(x){
+  var qs=shuffle(reviewQs(x)).slice(0,3);
+  return qs.map(function(q){return {kind:"review",key:q.key+"|"+q.q,type:"choice",prompt:q.q,sub:"",choices:q.opts,ans:(+q.ans)-1,exp:q.exp||""}});
+}
+function openQuiz(id,kind){
+  var x=dayItems(TODAY).filter(function(i){return String(i.id)===String(id)})[0];if(!x)return;
+  var qs=kind==="word"?buildWordSet(x):buildReviewSet(x);
+  if(!qs.length){toast(kind==="word"?"이 유닛 단어가 아직 없어요":"문제가 아직 없어요");return}
+  QZ={x:x,kind:kind,qs:qs,i:0,res:[],title:kind==="word"?"단어 퀴즈":"복습 퀴즈"};
+  showQ();
+}
+function closeQuiz(){$("quizModal").hidden=true;QZ=null;renderToday()}
+function showQ(){
+  var q=QZ.qs[QZ.i],n=QZ.qs.length;
+  var h='<div class="qhead"><span>'+esc(QZ.title)+'</span><b>'+(QZ.i+1)+' / '+n+'</b><button type="button" class="qx" id="qClose" aria-label="닫기">✕</button></div>';
+  h+='<div class="qprompt">'+esc(q.prompt)+(q.sub?'<small>'+esc(q.sub)+'</small>':'')+'</div>';
+  if(q.type==="spell")h+='<div class="qspell"><input id="qIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어 철자를 써요"><button type="button" class="qgo" id="qOk">확인</button></div>';
+  else h+='<div class="qchoices">'+q.choices.map(function(c,i){return '<button type="button" class="qc" data-i="'+i+'">'+esc(c)+'</button>'}).join("")+'</div>';
+  h+='<div class="qfb" id="qFb"></div>';
+  $("quizBox").innerHTML=h;$("quizModal").hidden=false;
+  var inp=$("qIn");if(inp)setTimeout(function(){inp.focus()},50);
+}
+function answerQ(val){
+  var q=QZ.qs[QZ.i];if(q.done)return;q.done=true;
+  var ok=q.type==="spell"?normEn(val)===normEn(q.answer):(+val===q.ans);
+  QZ.res.push({q:q,ok:ok,given:q.type==="spell"?val:(q.choices?q.choices[+val]:"")});
+  if(q.type!=="spell"){[].forEach.call(document.querySelectorAll("#quizBox .qc"),function(b){b.disabled=true;var i=+b.dataset.i;if(i===q.ans)b.classList.add("right");else if(i===+val)b.classList.add("wrong")})}
+  else{$("qIn").disabled=true;$("qOk").disabled=true}
+  var last=QZ.i===QZ.qs.length-1;
+  $("qFb").innerHTML='<div class="'+(ok?"okmsg":"nomsg")+'">'+(ok?"정답이에요! 🎉":"아쉬워요 😢 정답: "+esc(q.type==="spell"?q.answer:q.choices[q.ans]))+'</div>'+(q.exp?'<p class="qexp">'+esc(q.exp)+'</p>':"")+'<button type="button" class="qgo" id="qNext">'+(last?"결과 보기":"다음 문제")+'</button>';
+  setTimeout(function(){var nb=$("qNext");if(nb)nb.focus()},30);
+}
+function nextQ(){
+  if(QZ.i<QZ.qs.length-1){QZ.i++;showQ();return}
+  var rows=QZ.res.map(function(r){return {kind:r.q.kind,key:r.q.key,ok:r.ok}});
+  rows.forEach(function(r){DB.qlog.push({date:TODAY,kind:r.kind,key:r.key,ok:r.ok})});
+  if(!LIVE)persistLocal(); else send({action:"quiz",date:TODAY,rows:rows});
+  if(QZ.kind==="word"&&QZ.x&&!QZ.x.rep){var pr=findPlan(QZ.x.id);if(pr&&!pr.done)setDone(pr,true)}
+  var good=QZ.res.filter(function(r){return r.ok}).length,tot=QZ.res.length;
+  var h='<div class="qhead"><span>'+esc(QZ.title)+' 결과</span><button type="button" class="qx" id="qClose" aria-label="닫기">✕</button></div>';
+  h+='<div class="qscore">'+good+' / '+tot+'<small>'+(good===tot?"모두 맞혔어요! 최고 🌟":good>=tot/2?"잘했어요, 틀린 건 다음에 또 나와요":"괜찮아요, 틀린 문제는 다시 나와요")+'</small></div>';
+  var wr=QZ.res.filter(function(r){return !r.ok});
+  if(wr.length)h+='<div class="qwrong">'+wr.map(function(r){return '<div><b>'+esc(r.q.prompt)+'</b> → '+esc(r.q.type==="spell"?r.q.answer:r.q.choices[r.q.ans])+'</div>'}).join("")+'</div>';
+  h+='<div class="qbtns"><button type="button" class="qgo" id="qMore">한 번 더 (3문제)</button><button type="button" class="qgo ghost" id="qClose2">닫기</button></div>';
+  $("quizBox").innerHTML=h;
+}
+function moreQuiz(){
+  var kind=QZ.kind,x=QZ.x,qs=kind==="word"?buildWordSet(x):buildReviewSet(x);
+  if(!qs.length){closeQuiz();return}
+  QZ={x:x,kind:kind,qs:qs,i:0,res:[],title:QZ.title};showQ();
+}
+$("quizModal").addEventListener("click",function(e){
+  if(e.target===$("quizModal")||e.target.closest("#qClose")||e.target.closest("#qClose2")){closeQuiz();return}
+  var c=e.target.closest(".qc");if(c&&QZ){answerQ(c.dataset.i);return}
+  if(e.target.closest("#qOk")&&QZ){var v=$("qIn").value;if(v.trim())answerQ(v);return}
+  if(e.target.closest("#qNext")){nextQ();return}
+  if(e.target.closest("#qMore")){moreQuiz();return}
+});
+document.addEventListener("keydown",function(e){
+  if($("quizModal").hidden)return;
+  if(e.key==="Escape"){closeQuiz();return}
+  if(e.key==="Enter"&&QZ){var nb=$("qNext");if(nb){nextQ();return}var inp=$("qIn");if(inp&&!inp.disabled&&inp.value.trim())answerQ(inp.value)}
+});
+
 /* ============ 이벤트 ============ */
-$("tasks").addEventListener("click",function(e){if(e.target.closest("a"))e.stopPropagation()});
+$("tasks").addEventListener("click",function(e){
+  var qb=e.target.closest(".qbtn");
+  if(qb){e.preventDefault();e.stopPropagation();openQuiz(qb.closest(".task").dataset.id,qb.dataset.q);return}
+  if(e.target.closest("a"))e.stopPropagation();
+});
 $("tasks").addEventListener("change",function(e){
-  var it=e.target.closest(".task"),r=DB.plan.filter(function(x){return String(x.id)===it.dataset.id})[0];
-  r.done=e.target.checked;
-  if(!LIVE){var s=lget("local-done",{});s[r.id]=r.done;lset("local-done",s)}
-  else send({action:"check",row:r.id,done:r.done});
-  var was=$("praise").classList.contains("on");
+  var it=e.target.closest(".task");if(!it)return;
+  var id=it.dataset.id,on=e.target.checked,was=$("praise").classList.contains("on");
+  if(id.indexOf("rep:")===0)setRepeat(id.slice(4),TODAY,on);
+  else{var r=findPlan(id);if(r)setDone(r,on)}
   renderToday();
   if(allDone(TODAY)&&!was){toast("오늘 공부 완료! 🎉")}
 });
@@ -624,6 +853,11 @@ $("file").addEventListener("change",function(e){
   });
   if(!LIVE)toast("예시 모드: 사진은 화면에만 보여요");
 });
+$("minAdd").addEventListener("click",function(){
+  var h=+$("minH").value||0,m=+$("minM").value||0;addMinutes(h*60+m);$("minH").value="";$("minM").value="";
+});
+$("minUndo").addEventListener("click",undoMinutes);
+[].forEach.call(document.querySelectorAll(".quick button[data-m]"),function(b){b.addEventListener("click",function(){addMinutes(+b.dataset.m)})});
 [].forEach.call(document.querySelectorAll("nav button"),function(b){
   b.addEventListener("click",function(){
     [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});

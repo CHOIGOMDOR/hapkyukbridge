@@ -1,34 +1,75 @@
 /**
  * 치즈볼의 덕질 공부 노트 - 구글 앱 스크립트 (웹페이지 + 시트 연결)
  *
- * [파일 구성] 이 프로젝트에 파일 2개를 만들어요
- *   Code.gs   ← 이 파일
- *   Index.html ← 저장소의 apps-script/Index.html 내용을 그대로 붙여넣기 (파일 추가 > HTML > 이름 "Index")
+ * [처음 한 번만]
+ *  1. 새 구글 시트를 하나 만들어요 (이름은 자유).
+ *  2. 시트에서 확장 프로그램 > Apps Script 를 열어요.
+ *  3. Code.gs 에 이 파일을 붙여넣고, 파일 추가(+) > HTML > 이름 "Index" 에 Index.html 내용을 붙여넣어요.
+ *  4. 위쪽 함수 선택칸에서 setupSheets 를 고르고 ▶ 실행을 눌러요 (권한 허용).
+ *     → 계획·단어장·기록·순공시간 등 필요한 탭이 알아서 만들어지고, 계획과 단어장이 채워져요.
+ *  5. 배포 > 새 배포 > 유형: 웹 앱 > 실행: 나 / 액세스: 모든 사용자 > 배포
+ *     → 나오는 웹 앱 주소가 곧 페이지 주소예요. 카톡으로 보내면 열려요.
+ *  코드를 고친 뒤에는 "배포 관리 > 수정 > 새 버전"으로 다시 배포해야 반영돼요.
  *
- * [시트] 구글 시트에 탭 3개 (1행은 제목줄)
- *   계획 : 날짜 | 과목 | 단원 | 항목 | 범위 | 링크 | 완료
- *   기록 : 날짜 | 기분 | 개념1 | 개념2 | 개념3 | 다음공부 | 전사요약 | 사진
- *   설정 : A열 이름 / B열 값 → 목표제목, 시작일, 목표일, 목표설명, 이미지폴더ID, 사진폴더ID, 폰트파일ID
- *          (폰트파일ID = 드라이브에 올린 MemomentKkukkukk.woff2 파일의 ID)
- *
- * [배포] 배포 > 새 배포 > 유형: 웹 앱 > 실행: 나 / 액세스: 모든 사용자
- *        → 나오는 웹 앱 URL이 곧 페이지 주소예요. 카톡으로 보내면 열려요.
- *        코드를 고친 뒤에는 "배포 관리 > 수정 > 새 버전"으로 다시 배포해야 반영돼요.
+ * [시트 탭] (setupSheets 가 만들어요)
+ *  계획 : 날짜 | 과목 | 단원 | 항목 | 범위 | 링크 | 완료      ← 오늘 할 일 (완료 칸은 페이지가 채워요)
+ *  단어장 : 유닛 | 유닛 제목 | 영어 | 품사 | 뜻 | 철자 시험 | 선생님 표시 | 시험일
+ *  반복항목 : 항목 | 요일 | 주횟수 | 과목 | 메모           ← 요일이 "자유"면 주 N회 아무 날이나 (큐티)
+ *  문제 : 과목 | 키 | 문제 | 보기1~4 | 정답(1~4) | 해설      ← 복습 퀴즈 문제 (키 = 항목 이름 또는 단원)
+ *  기록 / 순공시간 / 반복체크 / 퀴즈기록 / 설정            ← 페이지가 쌓아요
  */
 var TZ = 'Asia/Seoul';
+// setupSheets 가 처음 채울 때 복사해 오는 원본 시트 (드라이브에 있는 파일 ID)
+var SRC_PLAN = '1bivWFZdjZ2QOfV4z6-5V62wHkecc--fYdoX5MqcmLdc';   // 2026 학습 계획 v3
+var SRC_VOCAB = '18gtRs_9dRpiAd1CkopYkyU2Mm8u2xOYS58DE7HSjW2k';  // 영어 단어장 전체 1~20
 var LOG_COLS = ['날짜', '기분', '개념1', '개념2', '개념3', '다음공부', '전사요약', '사진'];
 
-function sheet_(name) { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name); }
-function ymd_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || ''); }
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+function sheet_(name) { return ss_().getSheetByName(name); }
+function ymd_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function rows_(name) { var s = sheet_(name); return s ? s.getDataRange().getValues().slice(1) : []; }
 
-function settings_() {
-  var o = {}, v = sheet_('설정').getDataRange().getValues();
-  for (var i = 0; i < v.length; i++) if (v[i][0]) o[v[i][0]] = v[i][1];
-  return o;
+/* ---------------- 처음 한 번: 탭 만들고 채우기 ---------------- */
+function setupSheets() {
+  var ss = ss_();
+  importSheet_(ss, '계획', SRC_PLAN, 60);
+  importSheet_(ss, '단어장', SRC_VOCAB, 100);
+  ensure_(ss, '기록', LOG_COLS);
+  ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
+  ensure_(ss, '반복체크', ['날짜', '항목']);
+  ensure_(ss, '퀴즈기록', ['날짜', '종류', '키', '정답']);
+  ensure_(ss, '문제', ['과목', '키', '문제', '보기1', '보기2', '보기3', '보기4', '정답', '해설']);
+  var rep = ensure_(ss, '반복항목', ['항목', '요일', '주횟수', '과목', '메모']);
+  if (rep.getLastRow() < 2) {
+    rep.appendRow(['큐티', '자유', 2, '큐티', '일요일 모임 준비 · 이번 주 2번']);
+    rep.appendRow(['주제 글쓰기', '금', 1, '학교 숙제', '학교 글쓰기 숙제']);
+  }
+  var st = ensure_(ss, '설정', ['이름', '값']);
+  var have = {}; st.getDataRange().getValues().forEach(function (r) { have[r[0]] = true; });
+  [['목표제목', '중1 수학 1학기 완주'], ['시작일', '2026-10-12'], ['목표일', '2027-01-20'],
+   ['목표설명', '2026.10.12 → 2027.1월 중후반 · 내 속도에 맞춰 분량을 조절해요.'],
+   ['이미지폴더ID', ''], ['사진폴더ID', ''], ['폰트파일ID', '']].forEach(function (r) { if (!have[r[0]]) st.appendRow(r); });
+  ['Sheet1', '시트1'].forEach(function (n) { var d = ss.getSheetByName(n); if (d && ss.getSheets().length > 1 && d.getLastRow() === 0) ss.deleteSheet(d); });
+  SpreadsheetApp.getUi && Logger.log('완료! 이제 배포 > 새 배포 > 웹 앱 으로 배포하세요.');
+}
+function ensure_(ss, name, header) {
+  var s = ss.getSheetByName(name);
+  if (!s) { s = ss.insertSheet(name); s.appendRow(header); s.setFrozenRows(1); s.getRange(1, 1, 1, header.length).setFontWeight('bold'); }
+  return s;
+}
+/** 이미 데이터가 충분히 있으면(minRows 이상) 덮어쓰지 않아요 → 다시 실행해도 체크 기록이 안 지워져요 */
+function importSheet_(ss, name, srcId, minRows) {
+  var old = ss.getSheetByName(name);
+  if (old && old.getLastRow() >= minRows) { Logger.log(name + ': 이미 있어서 그대로 둬요'); return; }
+  var src = SpreadsheetApp.openById(srcId).getSheets()[0];
+  var copy = src.copyTo(ss);
+  if (old) ss.deleteSheet(old);
+  copy.setName(name);
+  copy.setFrozenRows(1);
 }
 
-/** 웹 주소로 들어오면 페이지를 보여줘요. (?action=all 이면 데이터만 JSON으로) */
+/* ---------------- 웹 주소로 들어오면 페이지 ---------------- */
 function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'all') return json_(getAll_());
   return HtmlService.createHtmlOutputFromFile('Index')
@@ -36,6 +77,7 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+function doPost(e) { return json_(handle_(JSON.parse(e.postData.contents))); }
 
 /** 페이지(google.script.run)가 부르는 함수들 */
 function apiGet() { return getAll_(); }
@@ -45,15 +87,30 @@ function getFontBase64() {
   if (!id) return '';
   return Utilities.base64Encode(DriveApp.getFileById(id).getBlob().getBytes());
 }
+function settings_() {
+  var o = {}; rows_('설정').forEach(function (r) { if (r[0]) o[r[0]] = r[1]; }); return o;
+}
 
 function getAll_() {
-  var st = settings_();
-  var plan = sheet_('계획').getDataRange().getValues().slice(1).map(function (r, i) {
+  var st = settings_(), since = ymd_(new Date(Date.now() - 150 * 864e5));
+  var plan = rows_('계획').map(function (r, i) {
     return { id: i + 2, date: ymd_(r[0]), subject: r[1], unit: r[2], task: r[3], range: r[4], link: r[5], done: r[6] === true || r[6] === 'TRUE' || r[6] === '완료' };
   }).filter(function (r) { return r.date; });
-  var log = sheet_('기록').getDataRange().getValues().slice(1).map(function (r) {
+  var log = rows_('기록').map(function (r) {
     return { date: ymd_(r[0]), mood: r[1], c1: r[2], c2: r[3], c3: r[4], next: r[5], summary: r[6], photos: String(r[7] || '').split(',').filter(String) };
   }).filter(function (r) { return r.date; });
+  var vocab = rows_('단어장').filter(function (r) { return r[2]; })
+    .map(function (r) { return [Number(r[0]), r[1], String(r[2]), String(r[3]), String(r[4]), String(r[5]), String(r[6] || '')]; });
+  var repeats = rows_('반복항목').filter(function (r) { return r[0]; })
+    .map(function (r) { return { name: String(r[0]), day: String(r[1] || '자유'), times: Number(r[2]) || 1, subject: String(r[3] || ''), memo: String(r[4] || '') }; });
+  var rchecks = rows_('반복체크').filter(function (r) { return r[0] && ymd_(r[0]) >= since; })
+    .map(function (r) { return { date: ymd_(r[0]), name: String(r[1]) }; });
+  var minutes = rows_('순공시간').filter(function (r) { return r[0] && ymd_(r[0]) >= since; })
+    .map(function (r) { return { date: ymd_(r[0]), min: Number(r[1]) || 0 }; });
+  var qlog = rows_('퀴즈기록').filter(function (r) { return r[0] && ymd_(r[0]) >= since; })
+    .map(function (r) { return { date: ymd_(r[0]), kind: String(r[1]), key: String(r[2]), ok: r[3] === 1 || r[3] === true || r[3] === '1' || r[3] === 'TRUE' }; });
+  var questions = rows_('문제').filter(function (r) { return r[1] && r[2]; })
+    .map(function (r) { return { subject: String(r[0]), key: String(r[1]), q: String(r[2]), opts: [r[3], r[4], r[5], r[6]].map(String), ans: Number(r[7]), exp: String(r[8] || '') }; });
   var images = [];
   if (st['이미지폴더ID']) {
     var it = DriveApp.getFolderById(st['이미지폴더ID']).getFiles();
@@ -63,32 +120,53 @@ function getAll_() {
     }
   }
   return {
-    plan: plan, log: log, images: images,
+    plan: plan, log: log, vocab: vocab, repeats: repeats, rchecks: rchecks, minutes: minutes, qlog: qlog, questions: questions, images: images,
     goal: { title: st['목표제목'] || '', start: ymd_(st['시작일']), end: ymd_(st['목표일']), sub: st['목표설명'] || '' }
   };
 }
 
+/* ---------------- 페이지에서 오는 저장 요청 ---------------- */
 function handle_(b) {
-  if (b.action === 'check') {
-    sheet_('계획').getRange(b.row, 7).setValue(b.done ? '완료' : '');
-  } else if (b.action === 'mood') {
-    upsertLog(b.date, { 기분: b.mood });
-  } else if (b.action === 'photo') {
-    var folder = DriveApp.getFolderById(settings_()['사진폴더ID']);
-    var blob = Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_' + b.name);
-    var f = folder.createFile(blob);
-    f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var url = 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w600';
-    var cur = (getLog_(b.date) || {})['사진'];
-    upsertLog(b.date, { 사진: cur ? cur + ',' + url : url });
-  }
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    if (b.action === 'check') {
+      sheet_('계획').getRange(b.row, 7).setValue(b.done ? '완료' : '');
+    } else if (b.action === 'mood') {
+      upsertLog(b.date, { 기분: b.mood });
+    } else if (b.action === 'photo') {
+      var folder = DriveApp.getFolderById(settings_()['사진폴더ID']);
+      var blob = Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.date + '_' + b.name);
+      var f = folder.createFile(blob);
+      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      var url = 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w600';
+      var cur = (getLog_(b.date) || {})['사진'];
+      upsertLog(b.date, { 사진: cur ? cur + ',' + url : url });
+    } else if (b.action === 'minutes') {
+      appendText_('순공시간', [b.date, Number(b.min), Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss')]);
+    } else if (b.action === 'minutesUndo') {
+      deleteLast_('순공시간', function (r) { return ymd_(r[0]) === b.date; });
+    } else if (b.action === 'rcheck') {
+      var s = sheet_('반복체크'), v = s.getDataRange().getValues();
+      for (var i = v.length - 1; i >= 1; i--) if (ymd_(v[i][0]) === b.date && String(v[i][1]) === b.name) s.deleteRow(i + 1);
+      if (b.on) appendText_('반복체크', [b.date, b.name]);
+    } else if (b.action === 'quiz') {
+      (b.rows || []).forEach(function (r) { appendText_('퀴즈기록', [b.date, r.kind, r.key, r.ok ? 1 : 0]); });
+    }
+  } finally { lock.releaseLock(); }
   return { ok: true };
 }
-function doPost(e) { return json_(handle_(JSON.parse(e.postData.contents))); }
+function appendText_(name, row) {
+  var s = sheet_(name); s.appendRow(row);
+  s.getRange(s.getLastRow(), 1).setNumberFormat('@').setValue(String(row[0]));
+}
+function deleteLast_(name, pred) {
+  var s = sheet_(name), v = s.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (pred(v[i])) { s.deleteRow(i + 1); return; }
+}
 
 function getLog_(date) {
-  var v = sheet_('기록').getDataRange().getValues();
-  for (var i = 1; i < v.length; i++) if (ymd_(v[i][0]) === date) {
+  var v = rows_('기록');
+  for (var i = 0; i < v.length; i++) if (ymd_(v[i][0]) === date) {
     var o = {}; LOG_COLS.forEach(function (c, k) { o[c] = v[i][k]; }); return o;
   }
   return null;
