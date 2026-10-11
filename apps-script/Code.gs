@@ -176,6 +176,8 @@ function handle_(b) {
       var id = b.id || ('q' + Date.now());
       appendText_('모르는문제', [id, b.date, url, b.memo || '', '[]', f.getId()]);
       return { ok: true, id: id, url: url };
+    } else if (b.action === 'transcribe') {
+      return { ok: true, text: transcribeAudio_(b.data, b.mime || 'audio/mp4') };
     } else if (b.action === 'qaAnswer') {
       var qs = sheet_('모르는문제'), qv = qs.getDataRange().getValues(), entry = { who: b.who, text: b.text || '', at: b.at, img: '', fid: '' };
       if (b.data) {
@@ -304,4 +306,25 @@ function summarize_(text, key, model) {
   if (res.getResponseCode() !== 200) throw new Error('AI 응답 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
   var j = JSON.parse(res.getContentText());
   return JSON.parse(j.candidates[0].content.parts[0].text);
+}
+
+
+/** 폰에서 녹음한 짧은 소리를 한국어 글로 받아 적어요 (설정 탭 API키 사용) */
+function transcribeAudio_(b64, mime) {
+  var st = settings_(), key = st['API키'];
+  if (!key) throw new Error('설정 탭에 API키를 넣어 주세요');
+  var body = { contents: [{ parts: [
+    { text: '다음 음성을 한국어로 그대로 받아 적어 주세요. 학생이 모르는 문제나 설명을 말한 내용입니다. 받아 적은 글만 출력하고 다른 말은 쓰지 마세요.' },
+    { inline_data: { mime_type: mime, data: b64 } }
+  ] }] };
+  var res, tried = [st['AI모델'] || 'gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  for (var i = 0; i < tried.length; i++) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tried[i] + ':generateContent', {
+      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 404) break;
+  }
+  if (res.getResponseCode() !== 200) throw new Error('음성 변환 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 160));
+  var j = JSON.parse(res.getContentText());
+  return String(((j.candidates || [{}])[0].content || { parts: [{}] }).parts[0].text || '').trim();
 }
