@@ -188,11 +188,24 @@ function handle_(b) {
       for (var i = 1; i < qv.length; i++) if (String(qv[i][0]) === String(b.id)) {
         var arr = []; try { arr = JSON.parse(qv[i][4] || '[]'); } catch (e) {}
         arr.push(entry);
-        qs.getRange(i + 1, 5).setValue(JSON.stringify(arr));
-        qs.getRange(i + 1, 7).setValue(arr.map(function (x) { return '[' + x.who + ' ' + x.at + '] ' + (x.text || '') + (x.img ? ' (사진: ' + x.img + ')' : ''); }).join('\n'));
+        writeAnswers_(qs, i + 1, arr);
         break;
       }
       return { ok: true, img: entry.img };
+    } else if (b.action === 'qaAnswerEdit' || b.action === 'qaAnswerDelete') {
+      var es = sheet_('모르는문제'), ev = es.getDataRange().getValues();
+      for (var r = 1; r < ev.length; r++) if (String(ev[r][0]) === String(b.id)) {
+        var list = []; try { list = JSON.parse(ev[r][4] || '[]'); } catch (e) {}
+        var k = -1;
+        if (b.aid) for (var m = 0; m < list.length; m++) if (list[m].aid === b.aid) { k = m; break; }
+        if (k < 0 && b.idx >= 0 && b.idx < list.length) k = b.idx;
+        if (k >= 0) {
+          if (b.action === 'qaAnswerEdit') { list[k].text = b.text; list[k].edited = true; }
+          else { var gone = list.splice(k, 1)[0]; if (gone && gone.fid) { try { DriveApp.getFileById(gone.fid).setTrashed(true); } catch (e) {} } }
+          writeAnswers_(es, r + 1, list);
+        }
+        break;
+      }
     } else if (b.action === 'qaDelete') {
       var ds = sheet_('모르는문제'), dv = ds.getDataRange().getValues();
       for (var j = dv.length - 1; j >= 1; j--) if (String(dv[j][0]) === String(b.id)) {
@@ -327,4 +340,13 @@ function transcribeAudio_(b64, mime) {
   if (res.getResponseCode() !== 200) throw new Error('음성 변환 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 160));
   var j = JSON.parse(res.getContentText());
   return String(((j.candidates || [{}])[0].content || { parts: [{}] }).parts[0].text || '').trim();
+}
+
+
+/** 답변 목록을 시트에 저장(JSON + 읽기 쉬운 글) */
+function writeAnswers_(sheet, row, list) {
+  sheet.getRange(row, 5).setValue(JSON.stringify(list));
+  sheet.getRange(row, 7).setValue(list.map(function (x) {
+    return '[' + x.who + ' ' + (x.at || '') + (x.edited ? ' 수정됨' : '') + '] ' + (x.text || '') + (x.img ? ' (사진: ' + x.img + ')' : '');
+  }).join('\n'));
 }

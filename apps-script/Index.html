@@ -401,6 +401,14 @@ nav button.on::before{opacity:.9}
 .micbtn{display:inline-block;font:inherit;font-size:16px;color:#111;border:2.5px solid var(--deep);border-radius:12px;padding:8px 12px;cursor:pointer;background:#fff;touch-action:manipulation}
 .micbtn.rec{background:#ffe0e0;border-color:#e0524e;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.55}}
+
+.abtns{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
+.abtns button,.aeditbox button{font:inherit;font-size:14px;color:#111;background:#fff;border:2px solid var(--pri);border-radius:10px;padding:4px 10px;cursor:pointer;touch-action:manipulation}
+.abtns .adel.sure,.aeditbox .asave{background:#ffe0e0;border-color:#e0524e;font-weight:700}
+.aeditbox .asave{background:linear-gradient(135deg,var(--pri),var(--pri2));border-color:var(--deep)}
+.aeditbox{margin-top:6px}
+.aeditbox textarea{width:100%;min-height:64px;font:inherit;font-size:17px;padding:8px 10px;border:2.5px solid var(--pri);border-radius:12px;color:#111;background:#fff;box-sizing:border-box}
+.aeditbox .row{display:flex;gap:8px;margin-top:6px;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -842,7 +850,7 @@ function renderQA(){
   if(!L.length){$("qaList").innerHTML='<div class="empty">모르는 문제 카드가 아직 없어요 ✨</div>';return}
   var wh=who();
   $("qaList").innerHTML=L.map(function(q){
-    var ans=(q.answers||[]).map(function(a){return '<div class="a"><b>'+esc(a.who)+'</b>'+esc(a.text||"")+'<small>'+esc(a.at||"")+'</small>'+(a.img?'<img src="'+esc(a.img)+'" alt="답변 사진">':"")+'</div>'}).join("");
+    var ans=(q.answers||[]).map(function(a,i){return '<div class="a" data-i="'+i+'" data-aid="'+esc(a.aid||"")+'"><b>'+esc(a.who)+'</b><span class="atx">'+esc(a.text||"")+'</span><small>'+esc(a.at||"")+(a.edited?' · 수정됨':'')+'</small>'+(a.img?'<img src="'+esc(a.img)+'" alt="답변 사진">':"")+'<div class="abtns"><button type="button" class="aedit">✏️ 수정</button><button type="button" class="adel">🗑 삭제</button></div></div>'}).join("");
     return '<div class="qaitem" data-id="'+esc(q.id)+'"><div class="qh"><span class="chip">'+q.date.slice(5).replace("-","/")+' ('+DAYN[wIdx(q.date)]+')</span><button type="button" class="qadel">🗑 이해했어요 (삭제)</button></div>'+
       (q.memo?'<div class="qaq">'+esc(q.memo)+'</div>':'')+
       '<img class="qimg" src="'+esc(q.url)+'" alt="모르는 문제 사진">'+
@@ -1011,6 +1019,31 @@ $("qaList").addEventListener("change",function(e){
 $("qaList").addEventListener("click",function(e){
   var it=e.target.closest(".qaitem");if(!it)return;
   var id=it.dataset.id,q=DB.qa.filter(function(x){return String(x.id)===id})[0];if(!q)return;
+  var ab=e.target.closest(".a");
+  if(ab&&e.target.closest(".aedit")){
+    var ai=+ab.dataset.i,cur=(q.answers[ai]||{}).text||"";
+    ab.querySelector(".atx").style.display="none";ab.querySelector(".abtns").style.display="none";
+    var bx=document.createElement("div");bx.className="aeditbox";
+    bx.innerHTML='<textarea></textarea><div class="row"><button type="button" class="acancel">취소</button><button type="button" class="asave">저장</button></div>';
+    bx.querySelector("textarea").value=cur;ab.appendChild(bx);bx.querySelector("textarea").focus();return;
+  }
+  if(ab&&e.target.closest(".acancel")){renderQA();return}
+  if(ab&&e.target.closest(".asave")){
+    var ni=+ab.dataset.i,nt=ab.querySelector(".aeditbox textarea").value.trim(),an=q.answers[ni];
+    if(!an)return;
+    if(!nt&&!an.img){toast("내용을 적어 주세요");return}
+    an.text=nt;an.edited=true;renderQA();
+    if(LIVE)send({action:"qaAnswerEdit",id:id,aid:an.aid||"",idx:ni,text:nt});
+    toast("답변을 고쳤어요 ✏️");return;
+  }
+  var adb=ab&&e.target.closest(".abtns .adel");
+  if(adb){
+    if(!adb.classList.contains("sure")){adb.classList.add("sure");adb.textContent="정말 삭제? 한 번 더";setTimeout(function(){adb.classList.remove("sure");adb.textContent="🗑 삭제"},3500);return}
+    var di=+ab.dataset.i,dn=q.answers[di];if(!dn)return;
+    q.answers.splice(di,1);renderQA();
+    if(LIVE)send({action:"qaAnswerDelete",id:id,aid:dn.aid||"",idx:di});
+    toast("답변을 지웠어요 🗑");return;
+  }
   var im=e.target.closest("img.qimg,.qans img");if(im){im.classList.toggle("big");return}
   var sb=e.target.closest(".qsend");
   if(sb){
@@ -1019,10 +1052,11 @@ $("qaList").addEventListener("click",function(e){
     try{localStorage.setItem("qa-who",w)}catch(x){}
     var o=parts(),at=(+o.month.replace("월",""))+"/"+(+o.day.replace("일",""));
     delete ASTAGE[id];
-    var done=function(img){q.answers=q.answers||[];q.answers.push({who:w,text:t,at:at,img:img||""});renderQA();toast("답변을 달았어요 💬")};
+    var aid="a"+Date.now()+Math.floor(Math.random()*1000);
+    var done=function(img){q.answers=q.answers||[];q.answers.push({aid:aid,who:w,text:t,at:at,img:img||""});renderQA();toast("답변을 달았어요 💬")};
     if(!LIVE){done(st&&st.url);return}
     toast("저장하는 중이에요…");
-    var body={action:"qaAnswer",id:id,who:w,text:t,at:at};
+    var body={action:"qaAnswer",id:id,aid:aid,who:w,text:t,at:at};
     if(st){body.data=st.b64;body.mime=st.mime;body.name=st.name;body.date=TODAY}
     send(body).then(function(r){if(r&&r.ok)done(r.img);});
     return;
