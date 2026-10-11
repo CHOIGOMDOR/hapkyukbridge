@@ -566,15 +566,26 @@ function lset(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 var CHEERS=["오늘도 화이팅! 💪","한 걸음씩, 천천히 가자","잘하고 있어, 치즈볼!","모르는 건 사진 찍어 두기 📷","오늘 할 일 다 하면 ⭐","수학은 하다 보면 쉬워져","차근차근 하나씩 ✨","작은 습관이 큰 실력!","쉬엄쉬엄 해도 괜찮아","오늘의 나, 칭찬해 🎉"];
 function dayNum(){return Math.floor(utc(TODAY)/864e5)}
 function kindOf(u){return /pompom/.test(u)?"jump":/lying/.test(u)?"crawl":/friends/.test(u)?"sway":"float"}
-function assignImages(){
-  var els=document.querySelectorAll("img.slot");
-  [].forEach.call(els,function(el){
-    var off=+(el.dataset.off||0);
-    var u=IMAGES[(dayNum()+(+el.dataset.slot)+off)%IMAGES.length];el.src=IMG_DATA[u]||u;el.dataset.kind=kindOf(u);
-  });
-  var c=CHEERS[dayNum()%CHEERS.length];$("bubble").textContent=c;
+function setImg(el,u){el.onerror=function(){el.onerror=null;var f=IMAGES[0];el.src=IMG_DATA[f]||f};el.src=IMG_DATA[u]||u;el.dataset.kind=kindOf(u)}
+function pickImg(used){
+  var pool=IMAGES.filter(function(u,i){return IMAGES.indexOf(u)===i});
+  var recent=lget("img-recent",[]),keep=Math.min(Math.max(pool.length-1,0),12);
+  var fresh=pool.filter(function(u){return used.indexOf(u)<0&&recent.slice(-keep).indexOf(u)<0});
+  if(!fresh.length)fresh=pool.filter(function(u){return used.indexOf(u)<0});
+  if(!fresh.length)fresh=pool;
+  var u=pick(fresh);recent.push(u);lset("img-recent",recent.slice(-30));return u;
 }
-document.addEventListener("click",function(e){var el=e.target.closest&&e.target.closest("img.slot");if(!el)return;el.dataset.off=(+(el.dataset.off||0)+1);assignImages()});
+/* 그림은 열 때마다, 탭을 바꿀 때마다, 눌렀을 때마다 새 그림으로 바뀌어요 (같은 화면에 같은 그림이 겹치지 않게) */
+function assignImages(){
+  var used=[];
+  [].forEach.call(document.querySelectorAll("img.slot"),function(el){var u=pickImg(used);used.push(u);setImg(el,u)});
+  $("bubble").textContent=pick(CHEERS);
+}
+document.addEventListener("click",function(e){
+  var el=e.target.closest&&e.target.closest("img.slot");if(!el)return;
+  var used=[].map.call(document.querySelectorAll("img.slot"),function(x){return x.getAttribute("src")});
+  var u=pickImg([]);setImg(el,u);
+});
 
 /* ============ 데이터 ============ */
 var DB = {plan:[],log:[],vocab:[],repeats:[],rchecks:[],minutes:[],qlog:[],questions:[],qa:[],mood:{}};
@@ -612,7 +623,7 @@ function applyData(j){
   DB.log.forEach(function(l){if(l.mood)DB.mood[l.date]=l.mood});
   DB.vocab=(j.vocab||[]).map(toVocab);
   DB.qa=j.qa||[]; DB.repeats=j.repeats||[]; DB.rchecks=j.rchecks||[]; DB.minutes=j.minutes||[]; DB.qlog=j.qlog||[]; DB.questions=j.questions||[];
-  if(j.images&&j.images.length)IMAGES=IMAGES.concat(j.images);
+  if(j.images&&j.images.length)j.images.forEach(function(u){if(IMAGES.indexOf(u)<0)IMAGES.push(u)});
   if(j.goal){for(var k in j.goal){if(j.goal[k])GOAL[k]=j.goal[k]}}
 }
 function loadData(){
@@ -1052,7 +1063,7 @@ function showTab(b){
   if(b.classList.contains("on"))return;
   [].forEach.call(document.querySelectorAll("nav button"),function(x){x.classList.toggle("on",x===b)});
   ["today","plan","qa","log"].forEach(function(id){$(id).classList.toggle("hide",id!==b.dataset.tab)});
-  window.scrollTo(0,0);
+  window.scrollTo(0,0);assignImages();
 }
 [].forEach.call(document.querySelectorAll("nav button"),function(b){
   b.addEventListener("pointerdown",function(){showTab(b)});   // 클릭 대기(딜레이) 없이 바로 바꿔요
