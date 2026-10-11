@@ -354,6 +354,12 @@ html img.slot[data-kind="float"]{animation:float 3s ease-in-out infinite}
 .qadel{background:#fff;border-color:#e0524e;margin-left:auto}
 .qadel.sure{background:#ffe0e0;font-weight:700}
 .note{color:#3d3a4f;font-size:15px;margin:8px 0 0}
+nav{gap:4px}
+nav button{white-space:nowrap;word-break:keep-all}
+@media(max-width:700px){nav{width:100%;margin-left:0;justify-content:space-between}nav button{flex:1;font-size:15px;padding:8px 2px}}
+.task .what{word-break:keep-all;overflow-wrap:break-word;line-height:1.45}
+.task .what b,.nxr{white-space:nowrap}
+.qaitem .qh span,.qans .a,.concept span,#next{word-break:keep-all;overflow-wrap:break-word}
 </style>
 </head>
 <body>
@@ -716,8 +722,8 @@ function renderToday(){
   var nx="";
   if(lg&&lg.next){nx=esc(lg.next)}
   else{
-    for(var k=1;k<=7;k++){var d2=addDays(TODAY,k),t=tasksOf(d2).filter(function(r){return /개념|문제|문법|역사|과학/.test(r.subject)});
-      if(t.length){nx='<small>'+DAYN[wIdx(d2)]+'요일</small>'+t.slice(0,3).map(function(r){return esc(r.task+(r.range?" "+r.range:""))}).join("<br>");break}}
+    for(var k=1;k<=7;k++){var d2=addDays(TODAY,k),t=tasksOf(d2).filter(function(r){return !/학원/.test(r.subject)});
+      if(t.length){nx='<small>'+DAYN[wIdx(d2)]+'요일</small>'+t.slice(0,4).map(function(r){return '<div style="margin:3px 0">'+esc(r.task)+(r.range?' <span class="nxr">'+esc(r.range)+'</span>':"")+'</div>'}).join("");break}}
   }
   $("next").innerHTML=nx||'<div class="empty">계획을 추가해 주세요</div>';
 
