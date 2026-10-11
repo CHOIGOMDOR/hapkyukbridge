@@ -60,7 +60,8 @@ function setupSheets() {
   var have = {}; st.getDataRange().getValues().forEach(function (r) { have[r[0]] = true; });
   [['목표제목', '중1 수학 1학기 완주'], ['시작일', '2026-10-12'], ['목표일', '2027-01-20'],
    ['목표설명', '2026.10.12 → 2027.1월 중후반 · 내 속도에 맞춰 분량을 조절해요.'],
-   ['이미지폴더ID', ''], ['사진폴더ID', ''], ['폰트파일ID', '']].forEach(function (r) { if (!have[r[0]]) st.appendRow(r); });
+   ['이미지폴더ID', ''], ['사진폴더ID', ''], ['폰트파일ID', ''],
+   ['전사폴더ID', '137o9lPGy6DLn7x-LRxuEFDIQpNABjypv'], ['API키', ''], ['AI모델', 'gemini-2.5-flash']].forEach(function (r) { if (!have[r[0]]) st.appendRow(r); });
   ['Sheet1', '시트1'].forEach(function (n) { var d = ss.getSheetByName(n); if (d && ss.getSheets().length > 1 && d.getLastRow() === 0) ss.deleteSheet(d); });
   SpreadsheetApp.getUi && Logger.log('완료! 이제 배포 > 새 배포 > 웹 앱 으로 배포하세요.');
 }
@@ -231,4 +232,65 @@ function upsertLog(date, fields) {
     var c = LOG_COLS.indexOf(k);
     if (c >= 0) s.getRange(row, c + 1).setValue(fields[k]);
   }
+}
+
+
+/* ================= 밤 전사파일 → 공부 기록 자동 반영 =================
+ * 1) 설정 탭에 전사폴더ID, API키(구글 Gemini 키)를 넣어요
+ * 2) setupTrigger 를 한 번 실행하면 매일 밤 11시에 자동으로 돌아요
+ * 3) 전사 txt(또는 구글 문서)를 '전사파일' 폴더에 날짜 이름으로 올리면 돼요. 예) 2026-10-13.txt
+ * 지금 바로 시험해 보려면 processTranscripts 를 직접 실행하세요 */
+function setupTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'processTranscripts') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('processTranscripts').timeBased().everyDays(1).atHour(23).inTimezone(TZ).create();
+  Logger.log('완료! 매일 밤 11시에 전사파일을 확인해요.');
+}
+
+function processTranscripts() {
+  var st = settings_();
+  if (!st['전사폴더ID'] || !st['API키']) { Logger.log('설정 탭에 전사폴더ID, API키를 먼저 넣어 주세요.'); return; }
+  var folder = DriveApp.getFolderById(st['전사폴더ID']);
+  var doneIt = folder.getFoldersByName('처리완료'), done = doneIt.hasNext() ? doneIt.next() : folder.createFolder('처리완료');
+  var it = folder.getFiles(), n = 0;
+  while (it.hasNext()) {
+    var f = it.next();
+    try {
+      var text = transcriptText_(f);
+      if (!text) { Logger.log('읽을 수 없는 파일(txt 또는 구글 문서로 올려 주세요): ' + f.getName()); continue; }
+      var m = f.getName().match(/(\d{4})[-._]?(\d{2})[-._]?(\d{2})/);
+      var date = m ? m[1] + '-' + m[2] + '-' + m[3] : Utilities.formatDate(f.getDateCreated(), TZ, 'yyyy-MM-dd');
+      var r = summarize_(text, st['API키'], st['AI모델'] || 'gemini-2.5-flash');
+      upsertLog(date, { 개념1: r.c1, 개념2: r.c2, 개념3: r.c3, 전사요약: r.summary });
+      f.moveTo(done); n++;
+      Logger.log('반영: ' + f.getName() + ' → ' + date);
+    } catch (e) { Logger.log('실패(다음에 다시 시도): ' + f.getName() + ' / ' + e); }
+  }
+  Logger.log('처리한 파일 ' + n + '개');
+}
+
+function transcriptText_(f) {
+  var mt = f.getMimeType();
+  if (mt === 'application/vnd.google-apps.document') return DocumentApp.openById(f.getId()).getBody().getText();
+  if (/^text\//.test(mt)) return f.getBlob().getDataAsString('UTF-8');
+  return '';
+}
+
+function summarize_(text, key, model) {
+  var prompt = '아래는 중학교 1학년 학생이 공부한 내용을 말로 설명한 녹음의 전사 글입니다. 학생에게 보여 줄 공부 기록을 만들어 주세요.\n' +
+    '- c1, c2, c3: 오늘 배운 핵심 개념 세 가지를 각각 한 문장으로. 학생이 읽기 쉬운 ~해요 체. 틀린 내용은 올바르게 고쳐서 쓰세요.\n' +
+    '- summary: 학생이 어디서 헷갈렸는지와 잘한 점을 1~2문장으로.\n' +
+    '전사 글에 없는 내용을 지어내지 마세요.\n\n[전사]\n' + text.slice(0, 60000);
+  var body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'OBJECT', properties: { c1: { type: 'STRING' }, c2: { type: 'STRING' }, c3: { type: 'STRING' }, summary: { type: 'STRING' } }, required: ['c1', 'c2', 'c3', 'summary'] }
+    }
+  };
+  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+    method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error('AI 응답 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  var j = JSON.parse(res.getContentText());
+  return JSON.parse(j.candidates[0].content.parts[0].text);
 }
