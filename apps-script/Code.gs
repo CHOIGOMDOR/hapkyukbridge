@@ -49,6 +49,7 @@ function setupSheets() {
   qt.getRange(1, 4).setValue('질문'); qt.getRange(1, 7).setValue('답변 보기').setFontWeight('bold');
   var ct = ensure_(ss, '개념', ['단원', '종류', '문장']);   // 오늘의 개념 세 문장의 원본(고쳐 써도 돼요)
   if (ct.getLastRow() < 2) ct.getRange(2, 1, CONCEPTS.length, 3).setValues(CONCEPTS);
+  ensure_(ss, '분석기록', ANALYSIS_COLS);   // 학습 분석 누적(부모용, 웹페이지에는 안 나가요)
   ensure_(ss, '순공시간', ['날짜', '분', '입력시각']);
   ensure_(ss, '반복체크', ['날짜', '항목']);
   ensure_(ss, '퀴즈기록', ['날짜', '종류', '키', '정답']);
@@ -286,6 +287,9 @@ function processTranscripts() {
       var date = m ? m[1] + '-' + m[2] + '-' + m[3] : Utilities.formatDate(f.getDateCreated(), TZ, 'yyyy-MM-dd');
       var r = summarize_(text, st['API키'], st['AI모델'] || 'gemini-3.8-flash');
       upsertLog(date, { 개념1: r.c1, 개념2: r.c2, 개념3: r.c3, 전사요약: r.summary });
+      var okA = false;
+      try { okA = analyzeTranscript_(text, date, f.getName(), st); } catch (e2) { Logger.log('분석 실패(내일 밤 다시 시도): ' + f.getName() + ' / ' + e2); }
+      if (!okA) continue;                       // 분석이 끝나야 처리완료로 옮겨요
       f.moveTo(done); n++;
       Logger.log('반영: ' + f.getName() + ' → ' + date);
     } catch (e) { Logger.log('실패(다음에 다시 시도): ' + f.getName() + ' / ' + e); }
@@ -352,6 +356,198 @@ function writeAnswers_(sheet, row, list) {
   sheet.getRange(row, 7).setValue(list.map(function (x) {
     return '[' + x.who + ' ' + (x.at || '') + (x.edited ? ' 수정됨' : '') + '] ' + (x.text || '') + (x.img ? ' (사진: ' + x.img + ')' : '');
   }).join('\n'));
+}
+
+/* ================= 학습 분석 (6영역 + 독립 메타인지) =================
+ * 기준서: 6영역(개념 20·사고 20·적용·확장 25·오류 수정 15·기억·인출 10·집중·조절 10) + 별도 메타인지 5항목(각 20점)
+ * AI는 근거와 점수 판단만 하고, 가중 종합·메타인지 총점·근거 충실도·변화량은 아래 코드가 직접 계산해요.
+ * 결과는 시트 '분석기록'(누적, 덮어쓰지 않고 추가)과 '분석현황'(최신 요약)에만 쌓여요. 웹페이지에는 내보내지 않아요. */
+var AREAS = [
+  { key: 'concept', name: '개념 이해', w: 0.20 }, { key: 'thinking', name: '사고 과정', w: 0.20 },
+  { key: 'apply', name: '적용·확장', w: 0.25 }, { key: 'error', name: '오류 수정', w: 0.15 },
+  { key: 'memory', name: '기억·인출', w: 0.10 }, { key: 'focus', name: '집중·조절', w: 0.10 }
+];
+var METAS = [
+  { key: 'm1', name: '자기상태 인식' }, { key: 'm2', name: '확신도·정확성 일치' }, { key: 'm3', name: '계획·전략 선택' },
+  { key: 'm4', name: '수행 중 점검·오류 발견' }, { key: 'm5', name: '수정·검증·전이' }
+];
+var ANALYSIS_COLS = ['분석ID', '분석일', '자료일', '회차', '과목·주제', '원본파일',
+  '개념 이해', '사고 과정', '적용·확장', '오류 수정', '기억·인출', '집중·조절', '가중 종합',
+  '자기상태 인식', '확신도·정확성', '계획·전략', '수행 중 점검', '수정·검증·전이', '메타인지 총점', '근거 충실도',
+  '난도', '도움', '최고 영역', '핵심 병목', '대표 근거1', '대표 근거2',
+  '보충', '확인', '통과 기준', '메타인지 질문',
+  '직전 종합', '종합 변화', '직전 메타', '메타 변화', '메타 최근3회 평균', '상태·해석 제한'];
+
+function analysisPrompt_(text) {
+  return '당신은 학습 분석가입니다. 아래는 중학교 1학년 학생이 혼자 공부하며 클로바 노트로 녹음한 전사 글입니다(교사나 부모의 질문은 없고, 학생 혼자 말합니다). ' +
+    '아래 기준으로 학생의 이 회차 학습을 분석해 JSON으로만 답하세요.\n\n' +
+    '[기본 6영역, 0~100점. 관찰 근거가 없으면 점수 -1(미관찰)]\n' +
+    '- concept 개념 이해의 정확성: 용어를 자기 말로 설명, 조건과 결론 구분, 사용 조건 확인\n' +
+    '- thinking 사고 과정과 막힘 지점: 무엇을 구하는지, 개념을 고른 이유, 풀이 단계 사이의 이유, 막힌 지점을 구체적으로\n' +
+    '- apply 사고 확장과 적용: 유사·변형 문제에 원리 적용, 조건이 바뀌면 전략 조정\n' +
+    '- error 오류 인식·수정·극복: 틀린 것을 알아차리고 원인을 특정, 고친 뒤 검증\n' +
+    '- memory 기억 유지와 인출: 자료 없이 설명하고 꺼내 쓰는지\n' +
+    '- focus 집중 상태와 학습조절: 학습 진입, 집중 저하 신호를 스스로 말하고 조절. 침묵이나 소음만으로 집중 저하라고 단정하지 말 것\n\n' +
+    '[독립 메타인지 5항목, 각각 0·5·10·15·20 중 하나. 기회가 없어 관찰하지 못했으면 -1(미관찰). 관찰하지 못한 항목을 0점으로 쓰지 말 것]\n' +
+    '- m1 자기상태 인식: 아는 것·모르는 것·막힌 지점·필요한 도움을 구분해 말함\n' +
+    '- m2 확신도와 정확성 일치: 말한 확신(예: 70%)이 실제 정확성과 맞는지, 불확실할 때 검증하는지\n' +
+    '- m3 계획과 전략 선택: 첫 행동과 방법을 고른 이유\n' +
+    '- m4 수행 중 점검과 오류 발견: 풀이 도중 조건·의미·계산 점검\n' +
+    '- m5 수정과 검증 및 전이: 고친 뒤 다시 확인하고 새 문제에 적용\n' +
+    '(확신도 퍼센트는 학생의 자신감이며 메타인지 점수와 다릅니다.)\n\n' +
+    '[기타] difficulty: D1(기초 재생) D2(기본 개념) D3(학년 수준 적용) D4(복합 조건) D5(심화·전이) 중 하나. ' +
+    'help: 혼자 학습이므로 대체로 H0이며, 교재·영상·정답을 보고 풀었다는 말이 있으면 H1~H3, 판단 불가면 H?.\n' +
+    'quotes: 학생이 실제로 한 말을 전사 글에서 한 글자도 바꾸지 말고 그대로 복사한 대표 근거 2개(없으면 빈 배열).\n' +
+    'next: 다음에 바로 할 일. repair(보충: 다시 지도할 개념·단계), check(확인: 다음에 쓸 문항·질문), pass(통과 기준: 문항 수·정확도·난도·허용 도움), metaQuestion(학생이 말해야 할 막힘·전략·검산 질문 한 개).\n' +
+    'bottleneck: 가장 큰 병목 한 줄, best: 가장 좋았던 점 한 줄. subject: 과목과 주제 한 줄. limits: 해석상 한계(예: 전사가 짧아 관찰 부족)를 한 줄.\n' +
+    '전사에 없는 내용은 지어내지 말고, 점수에는 근거가 있어야 합니다. 평가는 학생을 비난하지 않는 교육용 지표입니다.\n\n[전사]\n' + text.slice(0, 60000);
+}
+
+function analysisSchema_() {
+  var item = { type: 'OBJECT', properties: { score: { type: 'INTEGER' }, evidence: { type: 'STRING' } }, required: ['score', 'evidence'] };
+  var areas = { type: 'OBJECT', properties: {}, required: [] }, metas = { type: 'OBJECT', properties: {}, required: [] };
+  AREAS.forEach(function (a) { areas.properties[a.key] = item; areas.required.push(a.key); });
+  METAS.forEach(function (m) { metas.properties[m.key] = item; metas.required.push(m.key); });
+  return { type: 'OBJECT', properties: {
+    subject: { type: 'STRING' }, difficulty: { type: 'STRING' }, help: { type: 'STRING' },
+    areas: areas, metas: metas, quotes: { type: 'ARRAY', items: { type: 'STRING' } },
+    bottleneck: { type: 'STRING' }, best: { type: 'STRING' }, limits: { type: 'STRING' },
+    next: { type: 'OBJECT', properties: { repair: { type: 'STRING' }, check: { type: 'STRING' }, pass: { type: 'STRING' }, metaQuestion: { type: 'STRING' } }, required: ['repair', 'check', 'pass', 'metaQuestion'] }
+  }, required: ['subject', 'difficulty', 'help', 'areas', 'metas', 'quotes', 'bottleneck', 'best', 'limits', 'next'] };
+}
+
+/** 공통 Gemini 호출(JSON 응답). 모델 이름이 바뀌어 404가 나면 다음 이름을 써요 */
+function geminiJson_(prompt, schema, key, model) {
+  var body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: schema } };
+  var res, tried = [model, 'gemini-3.8-flash', 'gemini-flash-latest'];
+  for (var i = 0; i < tried.length; i++) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tried[i] + ':generateContent', {
+      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 404) break;
+  }
+  if (res.getResponseCode() !== 200) throw new Error('AI 응답 오류 ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  return JSON.parse(JSON.parse(res.getContentText()).candidates[0].content.parts[0].text);
+}
+
+function snap5_(v) { v = Number(v); if (isNaN(v) || v < 0) return null; return Math.min(20, Math.round(v / 5) * 5); }
+function area100_(v) { v = Number(v); if (isNaN(v) || v < 0) return null; return Math.min(100, Math.round(v)); }
+function norm_(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+
+/** AI가 준 판단(raw)을 기준서 공식대로 계산. prev: 직전까지의 분석기록 객체 배열(오래된 순) */
+function scoreAnalysis_(raw, transcript, prev) {
+  var notes = [], area = {}, wsum = 0, wtot = 0, observedAreas = 0;
+  AREAS.forEach(function (a) {
+    var v = area100_((raw.areas[a.key] || {}).score);
+    area[a.key] = v;
+    if (v !== null) { wsum += v * a.w; wtot += a.w; observedAreas++; }
+  });
+  var composite = observedAreas >= 3 ? Math.round(wsum / wtot * 10) / 10 : null;   // 3개 미만이면 종합을 내지 않아요(관찰 부족)
+  if (observedAreas < 6 && observedAreas >= 3) notes.push('6영역 중 ' + observedAreas + '개만 관찰되어 관찰된 영역의 가중치로 환산했어요');
+  if (observedAreas < 3) notes.push('6영역 관찰 부족(' + observedAreas + '/6) — 가중 종합은 계산하지 않았어요');
+  var meta = {}, msum = 0, mobs = 0;
+  METAS.forEach(function (m) {
+    var v = snap5_((raw.metas[m.key] || {}).score);
+    meta[m.key] = v;
+    if (v !== null) { msum += v; mobs++; }
+  });
+  var metaTotal = mobs >= 3 ? Math.round(msum / (mobs * 20) * 1000) / 10 : null;
+  var fidelity = Math.round(mobs / 5 * 100);
+  if (mobs < 3) notes.push('메타인지 관찰 부족(' + mobs + '/5)');
+  // 인용은 전사에 실제로 있는 문장만 인정
+  var tn = norm_(transcript), quotes = (raw.quotes || []).filter(function (q) { return norm_(q).length > 3 && tn.indexOf(norm_(q)) >= 0; }).slice(0, 2);
+  if ((raw.quotes || []).length && quotes.length < Math.min(2, raw.quotes.length)) notes.push('전사에서 확인되지 않은 인용은 뺐어요');
+  if (/침묵|소음/.test(String(raw.limits || ''))) notes.push('집중은 침묵만으로 단정하지 않았어요');
+  if (raw.limits) notes.push(String(raw.limits));
+  // 최고 영역(관찰된 것 중)
+  var best = null, bestV = -1;
+  AREAS.forEach(function (a) { if (area[a.key] !== null && area[a.key] > bestV) { bestV = area[a.key]; best = a.name; } });
+  // 직전 대비
+  var lastC = null, lastM = null;
+  for (var i = prev.length - 1; i >= 0; i--) { if (lastC === null && typeof prev[i].composite === 'number') lastC = prev[i].composite; if (lastM === null && typeof prev[i].metaTotal === 'number') lastM = prev[i].metaTotal; }
+  var recent = prev.map(function (x) { return x.metaTotal; }).filter(function (x) { return typeof x === 'number'; });
+  if (metaTotal !== null) recent.push(metaTotal);
+  recent = recent.slice(-3);
+  var avg3 = recent.length ? Math.round(recent.reduce(function (a, b) { return a + b; }, 0) / recent.length * 10) / 10 : null;
+  return {
+    area: area, composite: composite, meta: meta, metaTotal: metaTotal, fidelity: fidelity, quotes: quotes, best: best,
+    lastC: lastC, dC: (composite !== null && lastC !== null) ? Math.round((composite - lastC) * 10) / 10 : null,
+    lastM: lastM, dM: (metaTotal !== null && lastM !== null) ? Math.round((metaTotal - lastM) * 10) / 10 : null,
+    avg3: avg3, notes: notes, baseline: lastC === null
+  };
+}
+
+function analysisRows_() {
+  var s = sheet_('분석기록'); if (!s) return [];
+  var v = s.getDataRange().getValues().slice(1);
+  return v.filter(function (r) { return r[0]; }).map(function (r) {
+    return { id: r[0], date: ymd_(r[2]), file: String(r[5] || ''), composite: r[12] === '' ? null : Number(r[12]), metaTotal: (r[18] === '' || isNaN(Number(r[18]))) ? null : Number(r[18]), row: r };
+  });
+}
+
+/** 전사 한 개를 분석해 '분석기록'에 한 줄 추가. 같은 원본 파일은 다시 집계하지 않아요 */
+function analyzeTranscript_(text, date, fileName, st) {   // 성공하면 true
+  var ss = ss_(), tab = ensure_(ss, '분석기록', ANALYSIS_COLS);
+  var prev = analysisRows_();
+  if (prev.some(function (x) { return x.file === fileName && x.date === date; })) { Logger.log('이미 분석한 자료라 건너뛰어요: ' + fileName); return true; }
+  var raw = geminiJson_(analysisPrompt_(text), analysisSchema_(), st['API키'], st['AI모델'] || 'gemini-3.8-flash');
+  var r = scoreAnalysis_(raw, text, prev);
+  var n = prev.length + 1, nx = raw.next || {};
+  var ev = function (o, k) { var e = ((o || {})[k] || {}).evidence; return e ? String(e) : ''; };
+  var row = [
+    date + '#' + n, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), date, n, raw.subject || '', fileName,
+    r.area.concept, r.area.thinking, r.area.apply, r.area.error, r.area.memory, r.area.focus, r.composite,
+    r.meta.m1, r.meta.m2, r.meta.m3, r.meta.m4, r.meta.m5, r.metaTotal === null ? '관찰 부족' : r.metaTotal, r.fidelity + '%',
+    raw.difficulty || '', raw.help || '', r.best || '', raw.bottleneck || '', r.quotes[0] || '', r.quotes[1] || '',
+    nx.repair || '', nx.check || '', nx.pass || '', nx.metaQuestion || '',
+    r.lastC === null ? '기초선' : r.lastC, r.dC === null ? '' : r.dC, r.lastM === null ? '' : r.lastM, r.dM === null ? '' : r.dM, r.avg3 === null ? '' : r.avg3,
+    r.notes.join(' / ')
+  ];
+  var sh = tab; sh.appendRow(row);
+  var rr = sh.getLastRow();
+  sh.getRange(rr, 1, 1, 3).setNumberFormat('@').setValues([[row[0], row[1], row[2]]]);
+  // 각 영역의 근거 문장은 메모로 붙여 두어요(셀에 마우스를 올리면 보여요)
+  AREAS.forEach(function (a, i) { var e = ev(raw.areas, a.key); if (e) sh.getRange(rr, 7 + i).setNote(e); });
+  METAS.forEach(function (m, i) { var e = ev(raw.metas, m.key); if (e) sh.getRange(rr, 14 + i).setNote(e); });
+  updateAnalysisSummary_();
+  return true;
+}
+
+/** '분석현황': 최신 회차 요약과 최근 추이(부모용). 실행할 때마다 새로 그려요 */
+function updateAnalysisSummary_() {
+  var rows = analysisRows_(); if (!rows.length) return;
+  var ss = ss_(), sh = ss.getSheetByName('분석현황') || ss.insertSheet('분석현황');
+  sh.clear();
+  var last = rows[rows.length - 1].row, H = ANALYSIS_COLS;
+  var g = function (name) { return last[H.indexOf(name)]; };
+  var out = [
+    ['학습 분석 현황 (부모용 · 교육용 지표이며 학교 시험점수와 다릅니다)', '', '', ''],
+    ['최신 회차', g('회차') + '회차', '자료일', g('자료일')],
+    ['과목·주제', g('과목·주제'), '난도 / 도움', g('난도') + ' / ' + g('도움')],
+    ['', '', '', ''],
+    ['영역', '점수', '비중', '']
+  ];
+  AREAS.forEach(function (a) { var v = g(a.name === '개념 이해' ? '개념 이해' : a.name); out.push([a.name, v === '' ? '미관찰' : v, Math.round(a.w * 100) + '%', '']); });
+  out.push(['가중 종합', g('가중 종합'), '직전 ' + g('직전 종합'), '변화 ' + g('종합 변화')]);
+  out.push(['', '', '', '']);
+  out.push(['독립 메타인지', '점수(20점 만점)', '', '']);
+  ['자기상태 인식', '확신도·정확성', '계획·전략', '수행 중 점검', '수정·검증·전이'].forEach(function (n) { var v = g(n); out.push([n, v === '' ? '미관찰' : v, '', '']); });
+  out.push(['메타인지 총점', g('메타인지 총점'), '근거 충실도 ' + g('근거 충실도'), '최근 3회 평균 ' + g('메타 최근3회 평균')]);
+  out.push(['', '', '', '']);
+  out.push(['최고 영역', g('최고 영역'), '', '']);
+  out.push(['핵심 병목', g('핵심 병목'), '', '']);
+  out.push(['보충', g('보충'), '', '']);
+  out.push(['확인', g('확인'), '', '']);
+  out.push(['통과 기준', g('통과 기준'), '', '']);
+  out.push(['메타인지 질문', g('메타인지 질문'), '', '']);
+  out.push(['해석 제한', g('상태·해석 제한'), '', '']);
+  out.push(['', '', '', '']);
+  out.push(['최근 추이', '자료일', '가중 종합', '메타인지 총점']);
+  rows.slice(-8).forEach(function (x) { out.push([x.row[3] + '회차', x.date, x.composite === null ? '' : x.composite, x.metaTotal === null ? '관찰 부족' : x.metaTotal]); });
+  sh.getRange(1, 1, out.length, 4).setValues(out);
+  sh.getRange(1, 1).setFontWeight('bold').setFontSize(13);
+  sh.setColumnWidth(1, 150); sh.setColumnWidth(2, 360); sh.setColumnWidth(3, 170); sh.setColumnWidth(4, 170);
+  sh.getRange(1, 1, out.length, 4).setWrap(true).setVerticalAlignment('top');
 }
 
 /* ===CONCEPTS-BEGIN=== */
